@@ -3,27 +3,12 @@ using System.IO;
 using System;
 using System.Reflection.Metadata.Ecma335;
 using System.IO.Enumeration;
+using System.Security.Cryptography.X509Certificates;
 class Program
 {
     static void Main()
     {
-        /*
-        Console.WriteLine("Hello, World!");
 
-        List<DirectoryRoot.Folder> testFolders = new List<DirectoryRoot.Folder>();
-        List<DirectoryRoot.IFile> testFiles = new List<DirectoryRoot.IFile>();
-        testFolders.Add(new DirectoryRoot.Folder() { folderName = "Sub1" });
-        testFolders.Add(new DirectoryRoot.Folder() { folderName = "Sub2" });
-        testFolders.Add(new DirectoryRoot.Folder() { folderName = "Sub3" });
-        testFolders.Add(new DirectoryRoot.Folder() { folderName = "Sub4" });
-
-        testFiles.Add(new DirectoryRoot.TextFile() { fileName = "File1" });
-        testFiles.Add(new DirectoryRoot.TextFile() { fileName = "File2" });
-        testFiles.Add(new DirectoryRoot.TextFile() { fileName = "File3" });
-        testFiles.Add(new DirectoryRoot.TextFile() { fileName = "File4" });
-
-        var newFolder = new DirectoryRoot.Folder() { folderName = "TrentsFolder", subFolders = testFolders, subFiles = testFiles};
-        */
         Directory.CreateDirectory(DirectoryRoot.FileSystemConfig.Root);
 
         var folder = DirectoryRoot.InitializeFolder(null, DirectoryRoot.FileSystemConfig.Root, "ServerFiles");
@@ -42,11 +27,13 @@ public class DirectoryRoot
         void OverrwriteFile();
         void AppendFile();
         string ReturnFileName();
+        int ReturnPlaceInParent();
 
     }
     public class Folder
     {
         public Folder? parentFolder { get; set; }
+        public int placeInParentFolder { get; set; }
 
         public string? folderName { get; set; }
         public string? pathToFolder { get; set; }
@@ -85,6 +72,8 @@ public class DirectoryRoot
     {
         public string? fileName { get; set; }
         public string ReturnFileName() => fileName ?? "";
+        public int placeInParentFolder { get; set; }
+        public int ReturnPlaceInParent() => placeInParentFolder;
 
         public void ReadContents()
         {
@@ -112,32 +101,33 @@ public class DirectoryRoot
         while (endLoop == false)
         {
             Console.WriteLine("Please Select an Option (Enter an Integer 1-4): ");
-            Console.WriteLine("(1) -- Read File");
-            Console.WriteLine("(2) -- Write File");
-            Console.WriteLine("(3) -- List Files");
-            Console.WriteLine("(4) -- Create Folder");
-            Console.WriteLine("(5) -- Exit Program");
+            Console.WriteLine($"(1) -- Select Folder/File");
+            Console.WriteLine($"(2) -- Create Folder under {currentFolderloaded.folderName}");
+            Console.WriteLine($"(3) -- Create Text File under {currentFolderloaded.folderName}");
+            Console.WriteLine($"(4) -- Return to Parent Folder");
+            Console.WriteLine($"(5) -- Exit Program");
 
             if (int.TryParse(Console.ReadLine(), out int option))
             {
                 switch (option)
                 {
                     case 1:
-                        ReadFile();
+                        HandleFileOrFolderSelection(currentFolderloaded);
                         break;
                     case 2:
-                        WriteFile();
+                        CreateFolder(currentFolderloaded);
                         break;
-                    case 3:
-                        ListFiles();
+                    case 3: // END THE PROGRAM
+                        CreateFile(currentFolderloaded);
                         break;
-                    case 4: // END THE PROGRAM
-                        CreateFolder();
+                    case 4:
+                        ReturnToParentFolder(currentFolderloaded);
                         break;
                     case 5: // END THE PROGRAM
                         endLoop = true;
                         break;
                     default:
+                        Console.WriteLine("Invalid Option Selected\n");
                         break;
 
                 }
@@ -147,29 +137,58 @@ public class DirectoryRoot
         }
     }
 
-    static string SelectFile(string nameOfFile) // Returns a string holding the Path of the file needed
+    static void HandleFileOrFolderSelection(Folder baseFolder)
     {
+        bool endLoop = false;
+        while (endLoop == false)
+        {
+            Console.Clear();
+            Console.Write("Please enter the name of the file/folder you want to select: ");
+
+            baseFolder.ListFolderContents();
+
+            int selection = Console.Read();
+
+            var findFile = (object)baseFolder.subFolders.FirstOrDefault(x => x.placeInParentFolder == selection)
+            ?? (object)baseFolder.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == selection);
+        }
+
+
+
+    }
+
+    static string SelectFile(Folder baseFolder) // SELECT FILE PROCESS EXECUTED
+    {
+        bool endLoop = false;
+
+        while (endLoop == false)
+        {
+            Console.WriteLine("Please Select an Option (Enter an Integer 1-4): ");
+            Console.WriteLine($"(1) -- Read File Contents");
+            Console.WriteLine($"(2) -- Select File");
+            Console.WriteLine($"(3) -- Create Folder under {currentFolderloaded.folderName}");
+            Console.WriteLine($"(4) -- Create Text File under {currentFolderloaded.folderName}");
+            Console.WriteLine($"(5) -- Return to Parent Folder");
+            Console.WriteLine($"(6) -- Exit Program");
+        }
         return "";
     }
-
-    static void ListFiles()
-    {
-
-    }
-    static void WriteFile()
-    {
-
-    }
-    static void CreateFolder()
-    {
-
-    }
-    static void ReadFile()
+    static void CreateFile(Folder baseFolder)
     {
 
     }
 
-    static void DisplayFolderInfo()
+    static void CreateFolder(Folder baseFolder)
+    {
+
+
+    }
+    static void SelectFolder(Folder baseFolder) // SELECT FOLDER PROCESS EXECUTED
+    {
+
+    }
+
+    static void ReturnToParentFolder(Folder baseFolder)
     {
 
     }
@@ -188,21 +207,25 @@ public class DirectoryRoot
         rootFiles.AddRange(Directory.GetFiles(root));
         rootFolders.AddRange(Directory.GetDirectories(root));
 
-        foreach (var file in rootFiles)
-        {
-            allFiles.Add(new TextFile()
-            {
-                fileName = Path.GetFileName(file)
-            });
-        }
-
-        foreach (var folder in rootFolders)
+        int refCount = 0;
+        for (int i = 0; i < rootFolders.Count(); i++)
         {
             allFolders.Add(new Folder()
             {
-                folderName = Path.GetFileName(folder)
+                folderName = Path.GetFileName(rootFolders[refCount]),
+                placeInParentFolder = refCount
             });
         }
+        for (int i = 0; i < rootFiles.Count(); i++)
+        {
+            allFiles.Add(new TextFile()
+            {
+                fileName = Path.GetFileName(rootFiles[i]),
+                placeInParentFolder = refCount
+            });
+            refCount++;
+        }
+
         baseFolder.subFolders = allFolders;
         baseFolder.subFiles = allFiles;
 
