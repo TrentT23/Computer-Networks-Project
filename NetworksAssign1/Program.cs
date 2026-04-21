@@ -40,6 +40,8 @@ public class DirectoryRoot
         public List<Folder> subFolders { get; set; } = new();
         public List<IFile> subFiles { get; set; } = new();
 
+
+
         public void ListFolderContents()
         {
             WriteCenteredHeader($"Folder: {folderName}");
@@ -91,6 +93,23 @@ public class DirectoryRoot
         }
 
     }
+    static void ListCommands()
+    {
+        WriteCenteredHeader("File Operations: ");
+        Console.WriteLine($"READ (index)");
+        Console.WriteLine($"APPEND (index)");
+        Console.WriteLine($"OVERWRITE (index)");
+        Console.WriteLine($"CREATE FILE \"(New File Name)\"");
+        Console.WriteLine($"DELETE FILE (index)");
+        Console.WriteLine();
+        WriteCenteredHeader("Folder Operations: ");
+        Console.WriteLine("ENTER (index)");
+        Console.WriteLine("EXIT (index)");
+        Console.WriteLine("CREATE FOLDER \"(New Folder Name)\"");
+        Console.WriteLine("DELETE FOLDER (index)");
+        Console.WriteLine();
+        Console.WriteLine("To Exit Program, type \"(EXIT)\"");
+    }
     public static class FileSystemConfig
     {
         public static string Root = Path.Combine(AppContext.BaseDirectory, "ServerFiles");
@@ -106,12 +125,7 @@ public class DirectoryRoot
 
         while (endLoop == false)
         {
-            Console.WriteLine("Please Select an Option (Enter an Integer 1-4): ");
-            Console.WriteLine($"(1) -- Select Folder/File");
-            Console.WriteLine($"(2) -- Create Folder under {currentFolderloaded.folderName}");
-            Console.WriteLine($"(3) -- Create Text File under {currentFolderloaded.folderName}");
-            Console.WriteLine($"(4) -- Return to Parent Folder");
-            Console.WriteLine($"(5) -- Exit Program");
+            ListCommands();
 
             if (int.TryParse(Console.ReadLine(), out int option))
             {
@@ -219,25 +233,6 @@ public class DirectoryRoot
         }
         return "";
     }
-    static void CreateFile(Folder baseFolder)
-    {
-
-    }
-
-    static void CreateFolder(Folder baseFolder)
-    {
-
-
-    }
-    static void SelectFolder(Folder folder) // SELECT FOLDER PROCESS EXECUTED
-    {
-
-    }
-
-    static void ReturnToParentFolder(Folder baseFolder)
-    {
-
-    }
 
     public static Folder InitializeFolder(Folder parent, string pathToFolder, string baseName)
     {
@@ -313,6 +308,50 @@ public class DirectoryRoot
         catch (InvalidOperationException)
         {
             return 80;
+        }
+    }
+
+    public static class FileOperations
+    {
+        public static void ReadFile(IFile file)
+        {
+
+        }
+        public static void AppendFile(IFile file)
+        {
+
+        }
+        public static void OverwriteFile(IFile file)
+        {
+
+        }
+        public static void CreateFile(Folder baseFolder, string name)
+        {
+
+        }
+        public static void DeleteFile(IFile fileToDelete)
+        {
+
+        }
+    }
+
+    public static class FolderOperations
+    {
+        public static void EnterFolder(Folder folderToEnter)
+        {
+
+        }
+        public static void ExitFolder(Folder baseFolder)
+        {
+
+        }
+        public static void DeleteFolder(Folder folderToDelete)
+        {
+
+        }
+        public static void CreateFolder(Folder baseFolder, string nameOfFolder)
+        {
+
         }
     }
 
