@@ -12,8 +12,8 @@ class Program
         Directory.CreateDirectory(DirectoryRoot.FileSystemConfig.Root);
 
         var folder = DirectoryRoot.InitializeFolder(null, DirectoryRoot.FileSystemConfig.Root, "ServerFiles");
-        folder.ListFolderContents();
 
+        DirectoryRoot.MainLoop(folder);
 
     }
 }
@@ -49,7 +49,9 @@ public class DirectoryRoot
             }
 
             string underline = "------------------------";
-            Console.WriteLine(underline.PadLeft((Console.WindowWidth - underline.Length) / 2 + underline.Length));
+            int consoleWidth = GetSafeConsoleWidth();
+            int underlinePadding = Math.Max(0, (consoleWidth - underline.Length) / 2);
+            Console.WriteLine(underline.PadLeft(underlinePadding + underline.Length));
 
 
             int count = 0;
@@ -93,8 +95,12 @@ public class DirectoryRoot
     {
         public static string Root = Path.Combine(AppContext.BaseDirectory, "ServerFiles");
     }
-    static void MainLoop()
+    public static void MainLoop(Folder baseFolder)
     {
+        currentFolderloaded = baseFolder;
+
+        currentFolderloaded.ListFolderContents();
+
         string DirectoryRoot = FileSystemConfig.Root;
         bool endLoop = false;
 
@@ -142,34 +148,74 @@ public class DirectoryRoot
         bool endLoop = false;
         while (endLoop == false)
         {
-            Console.Clear();
-            Console.Write("Please enter the name of the file/folder you want to select: ");
 
             baseFolder.ListFolderContents();
+            WriteCenteredHeader("Please Enter the File/Folder Index you want to select: ");
 
-            int selection = Console.Read();
 
-            var findFile = (object)baseFolder.subFolders.FirstOrDefault(x => x.placeInParentFolder == selection)
-            ?? (object)baseFolder.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == selection);
+            if (int.TryParse(Console.ReadLine(), out int selection))
+            {
+                var findFile = (object)baseFolder.subFolders.FirstOrDefault(x => x.placeInParentFolder == selection)
+                ?? (object)baseFolder.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == selection);
+
+                if (findFile is Folder folder) // Match the pattern
+                {
+                    SelectFolder(folder);
+                    endLoop = true;
+                }
+                else if (findFile is IFile file)
+                {
+                    SelectFile(file);
+                    endLoop = true;
+                }
+                else
+                {
+                    WriteCenteredHeader("Please make a valid selection\n");
+                }
+            }
         }
 
 
 
     }
 
-    static string SelectFile(Folder baseFolder) // SELECT FILE PROCESS EXECUTED
+    static string SelectFile(IFile file) // SELECT FILE PROCESS EXECUTED
     {
         bool endLoop = false;
 
         while (endLoop == false)
         {
-            Console.WriteLine("Please Select an Option (Enter an Integer 1-4): ");
-            Console.WriteLine($"(1) -- Read File Contents");
-            Console.WriteLine($"(2) -- Select File");
-            Console.WriteLine($"(3) -- Create Folder under {currentFolderloaded.folderName}");
-            Console.WriteLine($"(4) -- Create Text File under {currentFolderloaded.folderName}");
-            Console.WriteLine($"(5) -- Return to Parent Folder");
-            Console.WriteLine($"(6) -- Exit Program");
+            Console.WriteLine("Please Select File Option (Enter an Integer 1-4): ");
+            Console.WriteLine($"(1) -- Read File Contents (READ)");
+            Console.WriteLine($"(2) -- Append to File (WRITE)");
+            Console.WriteLine($"(3) -- Overrwrite to File (WRITE)");
+            Console.WriteLine($"(4) -- Exit Back to Directory");
+
+            if (int.TryParse(Console.ReadLine(), out int selection))
+            {
+                switch (selection)
+                {
+                    case 1: // READ
+                        var fullPath = Path.Combine(FileSystemConfig.Root, file.ReturnFileName());
+                        string fileContents = File.ReadAllText(fullPath);
+
+                        Console.WriteLine("File Contents:");
+                        Console.WriteLine(fileContents);
+                        break;
+                    case 2: // APPEND
+
+                        break;
+                    case 3: // OVERWRITE
+
+                        break;
+                    case 4: // EXIT
+                        endLoop = true;
+                        break;
+                    default:
+                        break;
+                }
+            }
+
         }
         return "";
     }
@@ -183,7 +229,7 @@ public class DirectoryRoot
 
 
     }
-    static void SelectFolder(Folder baseFolder) // SELECT FOLDER PROCESS EXECUTED
+    static void SelectFolder(Folder folder) // SELECT FOLDER PROCESS EXECUTED
     {
 
     }
@@ -215,6 +261,7 @@ public class DirectoryRoot
                 folderName = Path.GetFileName(rootFolders[refCount]),
                 placeInParentFolder = refCount
             });
+            refCount++;
         }
         for (int i = 0; i < rootFiles.Count(); i++)
         {
@@ -246,12 +293,27 @@ public class DirectoryRoot
 
     public static void WriteCenteredHeader(string text)
     {
-        // 1. Calculate padding
-        int windowWidth = Console.WindowWidth;
+        int windowWidth = GetSafeConsoleWidth();
         int stringLength = text.Length;
-        int leftPadding = (windowWidth - stringLength) / 2;
+        int leftPadding = Math.Max(0, (windowWidth - stringLength) / 2);
 
         Console.WriteLine(text.PadLeft(leftPadding + stringLength));
+    }
+
+    private static int GetSafeConsoleWidth()
+    {
+        try
+        {
+            return Console.WindowWidth > 0 ? Console.WindowWidth : 80;
+        }
+        catch (IOException)
+        {
+            return 80;
+        }
+        catch (InvalidOperationException)
+        {
+            return 80;
+        }
     }
 
 
