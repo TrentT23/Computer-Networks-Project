@@ -4,6 +4,7 @@ using System;
 using System.Reflection.Metadata.Ecma335;
 using System.IO.Enumeration;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.RegularExpressions;
 class Program
 {
     static void Main()
@@ -20,12 +21,26 @@ class Program
 
 public class DirectoryRoot
 {
+    public enum FileOperations
+    {
+        READ,
+        APPEND,
+        OVERWRITE,
+    }
+    public enum FolderOperations
+    {
+        ENTER,
+        EXIT,
+    }
+    public enum SharedOperations
+    {
+        CREATE,
+        DELETE,
+        QUIT
+    }
     static Folder currentFolderloaded = new Folder();
     public interface IFile
     {
-        void ReadContents();
-        void OverrwriteFile();
-        void AppendFile();
         string ReturnFileName();
         int ReturnPlaceInParent();
 
@@ -78,20 +93,6 @@ public class DirectoryRoot
         public string ReturnFileName() => fileName ?? "";
         public int placeInParentFolder { get; set; }
         public int ReturnPlaceInParent() => placeInParentFolder;
-
-        public void ReadContents()
-        {
-
-        }
-        public void OverrwriteFile()
-        {
-
-        }
-        public void AppendFile()
-        {
-
-        }
-
     }
     static void ListCommands()
     {
@@ -127,36 +128,72 @@ public class DirectoryRoot
         {
             ListCommands();
 
-            if (int.TryParse(Console.ReadLine(), out int option))
-            {
-                switch (option)
-                {
-                    case 1:
-                        HandleFileOrFolderSelection(currentFolderloaded);
-                        break;
-                    case 2:
-                        CreateFolder(currentFolderloaded);
-                        break;
-                    case 3: // END THE PROGRAM
-                        CreateFile(currentFolderloaded);
-                        break;
-                    case 4:
-                        ReturnToParentFolder(currentFolderloaded);
-                        break;
-                    case 5: // END THE PROGRAM
-                        endLoop = true;
-                        break;
-                    default:
-                        Console.WriteLine("Invalid Option Selected\n");
-                        break;
+            string? command = Console.ReadLine();
 
-                }
+            if (!string.IsNullOrEmpty(command))
+            {
+                ParseCommand(command);
             }
 
 
         }
     }
 
+    static void ParseCommand(string fullCommand)
+    {
+        try
+        {
+            string[] parts = fullCommand.Split(new char[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+            if (!string.IsNullOrEmpty(parts[0]))
+            {
+                int arg1 = -1;
+                int.TryParse(parts[1], out arg1);
+
+                if (Enum.TryParse<FileOperations>(parts[0].ToUpper(), out FileOperations fileOp))
+                {
+                    switch (fileOp)
+                    {
+                        case FileOperations.READ:
+                            FileMethods.ReadFile(currentFolderloaded, arg1);
+                            break;
+                        case FileOperations.APPEND:
+                            break;
+                        case FileOperations.OVERWRITE:
+                            break;
+                    }
+                }
+                else if (Enum.TryParse<FolderOperations>(parts[0].ToUpper(), out FolderOperations folderOp))
+                {
+                    switch (folderOp)
+                    {
+                        case FolderOperations.ENTER:
+                            break;
+                        case FolderOperations.EXIT:
+                            break;
+                    }
+                }
+                else if (Enum.TryParse<SharedOperations>(parts[0].ToUpper(), out SharedOperations sharedOp))
+                {
+                    switch (sharedOp)
+                    {
+                        case SharedOperations.CREATE:
+                            break;
+                        case SharedOperations.DELETE:
+                            break;
+                        case SharedOperations.QUIT:
+                            break;
+                    }
+                }
+
+            }
+        }
+        catch (Exception)
+        {
+
+        }
+    }
+    /*
     static void HandleFileOrFolderSelection(Folder baseFolder)
     {
         bool endLoop = false;
@@ -192,6 +229,9 @@ public class DirectoryRoot
 
 
     }
+    */
+
+  
 
     static string SelectFile(IFile file) // SELECT FILE PROCESS EXECUTED
     {
@@ -311,11 +351,27 @@ public class DirectoryRoot
         }
     }
 
-    public static class FileOperations
+    public static class FileMethods
     {
-        public static void ReadFile(IFile file)
+        public static void ReadFile(Folder baseFolder, int selection)
         {
+            var findFile = (object)baseFolder.subFolders.FirstOrDefault(x => x.placeInParentFolder == selection)
+                   ?? (object)baseFolder.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == selection);
 
+            if (findFile is Folder folder) // If Folder, then print error
+            {
+                WriteCenteredHeader("Cannot read a Folder!");
+                return;
+            }
+            else if (findFile is IFile file)
+            {
+                var fullPath = Path.Combine(FileSystemConfig.Root, file.ReturnFileName());
+                string fileContents = File.ReadAllText(fullPath);
+
+                Console.WriteLine("File Contents:");
+                Console.WriteLine(fileContents);
+                return;
+            }
         }
         public static void AppendFile(IFile file)
         {
@@ -335,7 +391,7 @@ public class DirectoryRoot
         }
     }
 
-    public static class FolderOperations
+    public static class FolderMethods
     {
         public static void EnterFolder(Folder folderToEnter)
         {
