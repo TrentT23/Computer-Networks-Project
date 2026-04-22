@@ -36,6 +36,7 @@ public class DirectoryRoot
     {
         CREATE,
         DELETE,
+        MOVE,
         QUIT
     }
 
