@@ -38,6 +38,12 @@ public class DirectoryRoot
         DELETE,
         QUIT
     }
+
+    public enum DirectoryType
+    {
+        FILE,
+        FOLDER
+    }
     static Folder currentFolderloaded = new Folder();
     public interface IFile
     {
@@ -134,8 +140,6 @@ public class DirectoryRoot
             {
                 ParseCommand(command);
             }
-
-
         }
     }
 
@@ -152,15 +156,27 @@ public class DirectoryRoot
 
                 if (Enum.TryParse<FileOperations>(parts[0].ToUpper(), out FileOperations fileOp))
                 {
-                    switch (fileOp)
+                    var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
+
+                    if (findFile == null || findFile is Folder folder) // If Folder, then print error
                     {
-                        case FileOperations.READ:
-                            FileMethods.ReadFile(currentFolderloaded, arg1);
-                            break;
-                        case FileOperations.APPEND:
-                            break;
-                        case FileOperations.OVERWRITE:
-                            break;
+                        WriteCenteredHeader("Cannot read a Folder!");
+                        return;
+                    }
+                    else
+                    {
+                        switch (fileOp)
+                        {
+                            case FileOperations.READ:
+                                FileMethods.ReadFile(currentFolderloaded, findFile);
+                                break;
+                            case FileOperations.APPEND:
+                                FileMethods.AppendFile(currentFolderloaded, findFile);
+                                break;
+                            case FileOperations.OVERWRITE:
+                                FileMethods.OverwriteFile(currentFolderloaded, findFile);
+                                break;
+                        }
                     }
                 }
                 else if (Enum.TryParse<FolderOperations>(parts[0].ToUpper(), out FolderOperations folderOp))
@@ -178,6 +194,14 @@ public class DirectoryRoot
                     switch (sharedOp)
                     {
                         case SharedOperations.CREATE:
+                            string sarg1 = parts[1]; // Create is the only case were the second argument is a string
+
+                            if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
+                            {
+
+                            }
+
+
                             break;
                         case SharedOperations.DELETE:
                             break;
@@ -192,86 +216,6 @@ public class DirectoryRoot
         {
 
         }
-    }
-    /*
-    static void HandleFileOrFolderSelection(Folder baseFolder)
-    {
-        bool endLoop = false;
-        while (endLoop == false)
-        {
-
-            baseFolder.ListFolderContents();
-            WriteCenteredHeader("Please Enter the File/Folder Index you want to select: ");
-
-
-            if (int.TryParse(Console.ReadLine(), out int selection))
-            {
-                var findFile = (object)baseFolder.subFolders.FirstOrDefault(x => x.placeInParentFolder == selection)
-                ?? (object)baseFolder.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == selection);
-
-                if (findFile is Folder folder) // Match the pattern
-                {
-                    SelectFolder(folder);
-                    endLoop = true;
-                }
-                else if (findFile is IFile file)
-                {
-                    SelectFile(file);
-                    endLoop = true;
-                }
-                else
-                {
-                    WriteCenteredHeader("Please make a valid selection\n");
-                }
-            }
-        }
-
-
-
-    }
-    */
-
-  
-
-    static string SelectFile(IFile file) // SELECT FILE PROCESS EXECUTED
-    {
-        bool endLoop = false;
-
-        while (endLoop == false)
-        {
-            Console.WriteLine("Please Select File Option (Enter an Integer 1-4): ");
-            Console.WriteLine($"(1) -- Read File Contents (READ)");
-            Console.WriteLine($"(2) -- Append to File (WRITE)");
-            Console.WriteLine($"(3) -- Overrwrite to File (WRITE)");
-            Console.WriteLine($"(4) -- Exit Back to Directory");
-
-            if (int.TryParse(Console.ReadLine(), out int selection))
-            {
-                switch (selection)
-                {
-                    case 1: // READ
-                        var fullPath = Path.Combine(FileSystemConfig.Root, file.ReturnFileName());
-                        string fileContents = File.ReadAllText(fullPath);
-
-                        Console.WriteLine("File Contents:");
-                        Console.WriteLine(fileContents);
-                        break;
-                    case 2: // APPEND
-
-                        break;
-                    case 3: // OVERWRITE
-
-                        break;
-                    case 4: // EXIT
-                        endLoop = true;
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-        }
-        return "";
     }
 
     public static Folder InitializeFolder(Folder parent, string pathToFolder, string baseName)
@@ -353,41 +297,72 @@ public class DirectoryRoot
 
     public static class FileMethods
     {
-        public static void ReadFile(Folder baseFolder, int selection)
+        public static void ReadFile(Folder baseFolder, IFile file)
         {
-            var findFile = (object)baseFolder.subFolders.FirstOrDefault(x => x.placeInParentFolder == selection)
-                   ?? (object)baseFolder.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == selection);
+            var fullPath = Path.Combine(currentFolderloaded.pathToFolder, file.ReturnFileName());
+            string fileContents = File.ReadAllText(fullPath);
 
-            if (findFile is Folder folder) // If Folder, then print error
-            {
-                WriteCenteredHeader("Cannot read a Folder!");
-                return;
-            }
-            else if (findFile is IFile file)
-            {
-                var fullPath = Path.Combine(FileSystemConfig.Root, file.ReturnFileName());
-                string fileContents = File.ReadAllText(fullPath);
+            Console.WriteLine("File Contents:");
+            Console.WriteLine(fileContents);
+            return;
+        }
+        public static void AppendFile(Folder baseFolder, IFile file)
+        {
+            string path = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
 
-                Console.WriteLine("File Contents:");
-                Console.WriteLine(fileContents);
-                return;
+            if (File.Exists(path))
+            {
+                Console.WriteLine($"Please Enter Text you would like to append to {file.ReturnFileName()}: ");
+                string input = Console.ReadLine();
+
+                File.AppendAllText(path, input);
             }
         }
-        public static void AppendFile(IFile file)
+        public static void OverwriteFile(Folder baseFolder, IFile file)
         {
+            string path = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
 
-        }
-        public static void OverwriteFile(IFile file)
-        {
+            if (File.Exists(path))
+            {
+                Console.WriteLine($"Please Enter Text to Overwrite File {file.ReturnFileName()}: ");
+                string input = Console.ReadLine();
 
+                File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
+            }
         }
         public static void CreateFile(Folder baseFolder, string name)
         {
+            string path = Path.Combine(baseFolder.pathToFolder, !string.IsNullOrEmpty(name) ? name : $"newfile{baseFolder.subFiles.Count() + 1}");
 
+            if (File.Exists(path))
+            {
+                Console.WriteLine($"File Already Exists in this Location!");
+            }
+            else
+            {
+                using (File.Create(path))
+                {
+                    Console.WriteLine("Enter New File Text Input: ");
+                    string? input = Console.ReadLine();
+
+                    File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
+                }
+            }
         }
-        public static void DeleteFile(IFile fileToDelete)
+        public static void DeleteFile(Folder baseFolder, IFile fileToDelete)
         {
+            string path = Path.Combine(baseFolder.pathToFolder, fileToDelete.ReturnFileName());
 
+            if (File.Exists(path))
+            {
+                Console.WriteLine($"Are you sure you want to delete {fileToDelete.ReturnFileName()}?\nYES or NO");
+                string? input = Console.ReadLine();
+
+                if (!string.IsNullOrEmpty(input) && input.ToUpper() == "YES")
+                {
+                    File.Delete(path);
+                }
+            }
         }
     }
 
@@ -395,11 +370,23 @@ public class DirectoryRoot
     {
         public static void EnterFolder(Folder folderToEnter)
         {
+            var path = folderToEnter.pathToFolder;
+            if (File.Exists(path))
+            {
+                currentFolderloaded = folderToEnter;
+                currentFolderloaded.ListFolderContents();
+            }
 
         }
         public static void ExitFolder(Folder baseFolder)
         {
+            var path = baseFolder.parentFolder.pathToFolder;
 
+            if (File.Exists(path))
+            {
+                currentFolderloaded = baseFolder.parentFolder;
+                currentFolderloaded.ListFolderContents();
+            }
         }
         public static void DeleteFolder(Folder folderToDelete)
         {
@@ -407,7 +394,16 @@ public class DirectoryRoot
         }
         public static void CreateFolder(Folder baseFolder, string nameOfFolder)
         {
+            string path = Path.Combine(baseFolder.pathToFolder, !string.IsNullOrEmpty(nameOfFolder) ? nameOfFolder : $"newfile{baseFolder.subFiles.Count() + 1}");
 
+            if (Directory.Exists(path))
+            {
+                Console.WriteLine($"Folder Already Exists in this Folder!");
+            }
+            else
+            {
+                Directory.CreateDirectory(path);
+            }
         }
     }
 
