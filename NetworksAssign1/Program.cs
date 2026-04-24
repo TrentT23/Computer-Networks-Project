@@ -109,12 +109,14 @@ public class DirectoryRoot
         Console.WriteLine($"OVERWRITE (index)");
         Console.WriteLine($"CREATE FILE \"(New File Name)\"");
         Console.WriteLine($"DELETE FILE (index)");
+        Console.WriteLine($"MOVE FILE (index file selection) (index to Folder *enter -1 for move folder to parent*)");
         Console.WriteLine();
         WriteCenteredHeader("Folder Operations: ");
         Console.WriteLine("ENTER (index)");
         Console.WriteLine("EXIT (index)");
         Console.WriteLine("CREATE FOLDER \"(New Folder Name)\"");
         Console.WriteLine("DELETE FOLDER (index)");
+        Console.WriteLine("MOVE FOLDER (index folder selection (index to Folder *enter -1 to move folder to parent*))");
         Console.WriteLine();
         Console.WriteLine("To Exit Program, type \"(EXIT)\"");
     }
@@ -126,13 +128,14 @@ public class DirectoryRoot
     {
         currentFolderloaded = baseFolder;
 
-        currentFolderloaded.ListFolderContents();
 
         string DirectoryRoot = FileSystemConfig.Root;
         bool endLoop = false;
 
         while (endLoop == false)
         {
+            currentFolderloaded.ListFolderContents();
+
             ListCommands();
 
             string? command = Console.ReadLine();
@@ -169,7 +172,7 @@ public class DirectoryRoot
                         switch (fileOp)
                         {
                             case FileOperations.READ:
-                                FileMethods.ReadFile(currentFolderloaded, findFile);
+                                FileMethods.ReadFile(findFile);
                                 break;
                             case FileOperations.APPEND:
                                 FileMethods.AppendFile(currentFolderloaded, findFile);
@@ -195,19 +198,50 @@ public class DirectoryRoot
                     switch (sharedOp)
                     {
                         case SharedOperations.CREATE:
-                            string sarg1 = parts[1]; // Create is the only case were the second argument is a string
-
-                            if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
                             {
+                                string sarg1 = parts[1]; // Create is the only case were the second argument is a string
 
+                                string sarg2 = parts[2];
+                                if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
+                                {
+                                    if (nType == DirectoryType.FILE)
+                                    {
+                                        sarg2 = !string.IsNullOrEmpty(sarg2) ? sarg2 : string.Empty;
+                                        FileMethods.CreateFile(currentFolderloaded, sarg2);
+                                    }
+                                }
+                                break;
                             }
-
-
-                            break;
                         case SharedOperations.DELETE:
                             break;
                         case SharedOperations.QUIT:
                             break;
+
+                        case SharedOperations.MOVE:
+                            {
+                                string sarg1 = parts[1]; 
+
+                                if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
+                                {
+                                    int arg2 = int.TryParse(parts[2], out int temp1) ? temp1 : temp1 = -1;
+                                    int arg3 = int.TryParse(parts[2], out int temp2) ? temp2 : temp2 = -1;
+
+                                    if (nType == DirectoryType.FILE)
+                                    {
+                                        var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2);
+                                        var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
+                                        FileMethods.MoveFile(currentFolderloaded, findFile, folderToPut);
+                                    }
+                                    else if (nType == DirectoryType.FOLDER)
+                                    {
+                                        var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2);
+                                        var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
+                                        FolderMethods.MoveFolder(findFolder, folderToPut)
+
+                                    }
+                                }
+                                break;
+                            }
                     }
                 }
 
@@ -298,7 +332,7 @@ public class DirectoryRoot
 
     public static class FileMethods
     {
-        public static void ReadFile(Folder baseFolder, IFile file)
+        public static void ReadFile(IFile file)
         {
             var fullPath = Path.Combine(currentFolderloaded.pathToFolder, file.ReturnFileName());
             string fileContents = File.ReadAllText(fullPath);
@@ -350,6 +384,21 @@ public class DirectoryRoot
                 }
             }
         }
+
+        public static void MoveFile(Folder baseFolder, IFile file, Folder folderToMoveTo)
+        {
+            string filePath = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
+            string folderPath = folderToMoveTo.folderName;
+
+            if (Directory.Exists(folderPath))
+            {
+                File.Move(filePath, folderPath);
+            }
+            else
+            {
+                Console.WriteLine("Please Select a Folder to move the file into: \n");
+            }
+        }
         public static void DeleteFile(Folder baseFolder, IFile fileToDelete)
         {
             string path = Path.Combine(baseFolder.pathToFolder, fileToDelete.ReturnFileName());
@@ -391,7 +440,18 @@ public class DirectoryRoot
         }
         public static void DeleteFolder(Folder folderToDelete)
         {
+            string path = folderToDelete.folderName;
 
+            if (File.Exists(path))
+            {
+                Console.WriteLine($"Are you sure you want to delete {folderToDelete.folderName}? This includes all files in the folder!!\nYES or NO");
+                string? input = Console.ReadLine();
+
+                if (!string.IsNullOrEmpty(input) && input.ToUpper() == "YES")
+                {
+                    File.Delete(path);
+                }
+            }
         }
         public static void CreateFolder(Folder baseFolder, string nameOfFolder)
         {
@@ -404,6 +464,20 @@ public class DirectoryRoot
             else
             {
                 Directory.CreateDirectory(path);
+            }
+        }
+        public static void MoveFolder(Folder folderBeingMoved, Folder folderToMoveTo)
+        {
+            string filePath = folderBeingMoved.pathToFolder;
+            string folderPath = folderToMoveTo.folderName;
+
+            if (Directory.Exists(folderPath))
+            {
+                Directory.Move(filePath, folderPath);
+            }
+            else
+            {
+                Console.WriteLine("Please Select a Folder to move the file into: \n");
             }
         }
     }
