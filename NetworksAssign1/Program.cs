@@ -145,6 +145,8 @@ public class DirectoryRoot
             ListCommands();
 
             string? command = Console.ReadLine();
+            Console.Clear();
+
 
             if (!string.IsNullOrEmpty(command))
             {
