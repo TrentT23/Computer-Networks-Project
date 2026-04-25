@@ -1,10 +1,6 @@
 ﻿using ServerFile;
 using System.IO;
 using System;
-using System.Reflection.Metadata.Ecma335;
-using System.IO.Enumeration;
-using System.Security.Cryptography.X509Certificates;
-using System.Text.RegularExpressions;
 class Program
 {
     static void Main()
@@ -57,8 +53,8 @@ public class DirectoryRoot
         public Folder? parentFolder { get; set; }
         public int placeInParentFolder { get; set; }
 
-        public string? folderName { get; set; }
-        public string? pathToFolder { get; set; }
+        public string folderName { get; set; } = string.Empty;
+        public string pathToFolder { get; set; } = string.Empty;
         public List<Folder> subFolders { get; set; } = new();
         public List<IFile> subFiles { get; set; } = new();
 
@@ -72,22 +68,32 @@ public class DirectoryRoot
                 WriteCenteredHeader($"Parent Folder: {parentFolder.folderName}");
             }
 
-            string underline = "------------------------";
+            string underline = new string('-', 44);
             int consoleWidth = GetSafeConsoleWidth();
             int underlinePadding = Math.Max(0, (consoleWidth - underline.Length) / 2);
             Console.WriteLine(underline.PadLeft(underlinePadding + underline.Length));
+            Console.WriteLine(FormatListingRow("Index", "Type", "Name"));
+            Console.WriteLine(FormatListingRow("-----", "------", "----"));
 
 
             int count = 0;
             for (int i = 0; i < subFolders.Count(); i++)
             {
-                WriteCenteredHeader($"({count} - Folder): {subFolders[i].folderName}");
+                Console.WriteLine(FormatListingRow(count.ToString(), "Folder", subFolders[i].folderName));
+                subFolders[i].placeInParentFolder = count;
                 count++;
             }
             for (int i = 0; i < subFiles.Count(); i++)
             {
-                WriteCenteredHeader($"({count} - File): {subFiles[i].ReturnFileName()}");
+                Console.WriteLine(FormatListingRow(count.ToString(), "File", subFiles[i].ReturnFileName()));
+                var tFile = (TextFile)subFiles[i];
+                tFile.placeInParentFolder = count;
                 count++;
+            }
+
+            if (count == 0)
+            {
+                Console.WriteLine(FormatListingRow("-", "-", "(empty)"));
             }
 
         }
@@ -96,29 +102,31 @@ public class DirectoryRoot
     }
     public class TextFile : IFile
     {
-        public string? fileName { get; set; }
-        public string ReturnFileName() => fileName ?? "";
+        public string fileName { get; set; } = string.Empty;
+        public string ReturnFileName() => fileName;
         public int placeInParentFolder { get; set; }
         public int ReturnPlaceInParent() => placeInParentFolder;
     }
     static void ListCommands()
     {
-        WriteCenteredHeader("File Operations: ");
-        Console.WriteLine($"READ (index)");
-        Console.WriteLine($"APPEND (index)");
-        Console.WriteLine($"OVERWRITE (index)");
-        Console.WriteLine($"CREATE FILE \"(New File Name)\"");
-        Console.WriteLine($"DELETE FILE (index)");
-        Console.WriteLine($"MOVE FILE (index file selection) (index to Folder *enter -1 for move folder to parent*)");
         Console.WriteLine();
-        WriteCenteredHeader("Folder Operations: ");
-        Console.WriteLine("ENTER (index)");
-        Console.WriteLine("EXIT (index)");
-        Console.WriteLine("CREATE FOLDER \"(New Folder Name)\"");
-        Console.WriteLine("DELETE FOLDER (index)");
-        Console.WriteLine("MOVE FOLDER (index folder selection (index to Folder *enter -1 to move folder to parent*))");
+        WriteCenteredHeader("Available Commands");
+        Console.WriteLine(new string('-', 78));
+        Console.WriteLine(FormatCommandRow("Category", "Command", "What It Does"));
+        Console.WriteLine(FormatCommandRow("--------", "-------", "------------"));
+
+        Console.WriteLine(FormatCommandRow("File", "READ <index>", "Show the contents of a file."));
+        Console.WriteLine(FormatCommandRow("File", "APPEND <index>", "Add text to the end of a file."));
+        Console.WriteLine(FormatCommandRow("File", "OVERWRITE <index>", "Replace all text inside a file."));
+        Console.WriteLine(FormatCommandRow("Create", "CREATE FILE <name>", "Create a new file, then enter its text."));
+        Console.WriteLine(FormatCommandRow("Create", "CREATE FOLDER <name>", "Create a new folder in the current folder."));
+        Console.WriteLine(FormatCommandRow("Delete", "DELETE <index>", "Delete the selected file or folder."));
+        Console.WriteLine(FormatCommandRow("Move", "MOVE FILE <item> <folder>", "Move a file into a folder."));
+        Console.WriteLine(FormatCommandRow("Move", "MOVE FOLDER <item> <folder>", "Move a folder into another folder."));
+        Console.WriteLine(FormatCommandRow("Folder", "ENTER <index>", "Open the selected folder."));
+        Console.WriteLine(FormatCommandRow("Folder", "EXIT", "Go to the parent folder."));
+        Console.WriteLine(FormatCommandRow("System", "QUIT", "Close the program."));
         Console.WriteLine();
-        Console.WriteLine("To Exit Program, type \"(EXIT)\"");
     }
     public static class FileSystemConfig
     {
@@ -127,13 +135,11 @@ public class DirectoryRoot
     public static void MainLoop(Folder baseFolder)
     {
         currentFolderloaded = baseFolder;
-
-
-        string DirectoryRoot = FileSystemConfig.Root;
         bool endLoop = false;
 
         while (endLoop == false)
         {
+            currentFolderloaded = InitializeFolder(currentFolderloaded.parentFolder, currentFolderloaded.pathToFolder, currentFolderloaded.folderName);
             currentFolderloaded.ListFolderContents();
 
             ListCommands();
@@ -142,30 +148,33 @@ public class DirectoryRoot
 
             if (!string.IsNullOrEmpty(command))
             {
-                ParseCommand(command);
+                bool loop = ParseCommand(command);
+                endLoop = loop;
             }
         }
     }
 
-    static void ParseCommand(string fullCommand)
+    static bool ParseCommand(string fullCommand)
     {
         try
         {
             string[] parts = fullCommand.Split(new char[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
 
-            if (!string.IsNullOrEmpty(parts[0]))
+            if (parts.Length > 0 && !string.IsNullOrEmpty(parts[0]))
             {
                 int arg1 = -1;
-                int.TryParse(parts[1], out arg1);
+                if (parts.Length > 1)
+                {
+                    int.TryParse(parts[1], out arg1);
+                }
 
                 if (Enum.TryParse<FileOperations>(parts[0].ToUpper(), out FileOperations fileOp))
                 {
                     var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
 
-                    if (findFile == null || findFile is Folder folder) // If Folder, then print error
+                    if (findFile == null)
                     {
                         WriteCenteredHeader("Cannot read a Folder!");
-                        return;
                     }
                     else
                     {
@@ -188,8 +197,16 @@ public class DirectoryRoot
                     switch (folderOp)
                     {
                         case FolderOperations.ENTER:
+                            var folder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
+                            if (folder != null)
+                            {
+                                FolderMethods.EnterFolder(folder);
+                                break;
+                            }
+                            Console.WriteLine("Could not find Folder to Enter!");
                             break;
                         case FolderOperations.EXIT:
+                            FolderMethods.ExitFolder(currentFolderloaded);
                             break;
                     }
                 }
@@ -199,45 +216,96 @@ public class DirectoryRoot
                     {
                         case SharedOperations.CREATE:
                             {
-                                string sarg1 = parts[1]; // Create is the only case were the second argument is a string
+                                if (parts.Length < 2)
+                                {
+                                    Console.WriteLine("Please specify FILE or FOLDER.");
+                                    break;
+                                }
 
-                                string sarg2 = parts[2];
+                                string sarg1 = parts[1];
+                                string sarg2 = ExtractCreateName(fullCommand, sarg1);
                                 if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
                                 {
+                                    sarg2 = !string.IsNullOrEmpty(sarg2) ? sarg2 : string.Empty;
+
                                     if (nType == DirectoryType.FILE)
                                     {
-                                        sarg2 = !string.IsNullOrEmpty(sarg2) ? sarg2 : string.Empty;
                                         FileMethods.CreateFile(currentFolderloaded, sarg2);
                                     }
+                                    else if (nType == DirectoryType.FOLDER)
+                                    {
+                                        FolderMethods.CreateFolder(currentFolderloaded, sarg2);
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Please specify FILE or FOLDER.");
                                 }
                                 break;
                             }
                         case SharedOperations.DELETE:
-                            break;
-                        case SharedOperations.QUIT:
-                            break;
+                            {
+                                if (arg1 != -1)
+                                {
+                                    var subFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
+                                    var subFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
+
+                                    if (subFile != null)
+                                    {
+                                        FileMethods.DeleteFile(currentFolderloaded, subFile);
+
+                                    }
+                                    else if (subFolder != null)
+                                    {
+                                        FolderMethods.DeleteFolder(subFolder);
+
+                                    }
+                                }
+                                break;
+                            }
+                        case SharedOperations.QUIT: // returns a true boolean to indicate program exit
+                            return true;
 
                         case SharedOperations.MOVE:
                             {
-                                string sarg1 = parts[1]; 
+                                if (parts.Length < 4)
+                                {
+                                    Console.WriteLine("Use MOVE FILE <item> <folder> or MOVE FOLDER <item> <folder>.");
+                                    break;
+                                }
+
+                                string sarg1 = parts[1];
 
                                 if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
                                 {
                                     int arg2 = int.TryParse(parts[2], out int temp1) ? temp1 : temp1 = -1;
-                                    int arg3 = int.TryParse(parts[2], out int temp2) ? temp2 : temp2 = -1;
+                                    int arg3 = int.TryParse(parts[3], out int temp2) ? temp2 : temp2 = -1;
 
                                     if (nType == DirectoryType.FILE)
                                     {
                                         var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2);
                                         var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
-                                        FileMethods.MoveFile(currentFolderloaded, findFile, folderToPut);
+                                        if (findFile != null && folderToPut != null)
+                                        {
+                                            FileMethods.MoveFile(currentFolderloaded, findFile, folderToPut);
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("Please select a valid file and destination folder.");
+                                        }
                                     }
                                     else if (nType == DirectoryType.FOLDER)
                                     {
                                         var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2);
                                         var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
-                                        FolderMethods.MoveFolder(findFolder, folderToPut)
-
+                                        if (findFolder != null && folderToPut != null)
+                                        {
+                                            FolderMethods.MoveFolder(findFolder, folderToPut);
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("Please select a valid folder and destination folder.");
+                                        }
                                     }
                                 }
                                 break;
@@ -246,14 +314,15 @@ public class DirectoryRoot
                 }
 
             }
+            return false;
         }
         catch (Exception)
         {
-
+            return false;
         }
     }
 
-    public static Folder InitializeFolder(Folder parent, string pathToFolder, string baseName)
+    public static Folder InitializeFolder(Folder? parent, string pathToFolder, string baseName)
     {
         Folder baseFolder = new Folder() { parentFolder = parent, folderName = baseName, pathToFolder = pathToFolder };
         string root = pathToFolder;
@@ -272,7 +341,9 @@ public class DirectoryRoot
         {
             allFolders.Add(new Folder()
             {
-                folderName = Path.GetFileName(rootFolders[refCount]),
+                folderName = Path.GetFileName(rootFolders[i]),
+                pathToFolder = rootFolders[i],
+                parentFolder = baseFolder,
                 placeInParentFolder = refCount
             });
             refCount++;
@@ -297,11 +368,11 @@ public class DirectoryRoot
 
     public static void ReturnToParent()
     {
-        Folder pathParent = currentFolderloaded.parentFolder;
+        Folder? pathParent = currentFolderloaded.parentFolder;
 
         if (pathParent != null)
         {
-            InitializeFolder(pathParent?.parentFolder, pathParent?.pathToFolder, pathParent?.folderName);
+            InitializeFolder(pathParent.parentFolder, pathParent.pathToFolder, pathParent.folderName);
         }
     }
 
@@ -330,6 +401,28 @@ public class DirectoryRoot
         }
     }
 
+    private static string ExtractCreateName(string fullCommand, string directoryType)
+    {
+        string prefix = $"CREATE {directoryType}";
+        if (!fullCommand.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        string remainder = fullCommand.Substring(prefix.Length).Trim();
+        return remainder.Trim().Trim('"');
+    }
+
+    private static string FormatListingRow(string index, string type, string name)
+    {
+        return $"{index,-7} {type,-8} {name}";
+    }
+
+    private static string FormatCommandRow(string category, string command, string description)
+    {
+        return $"{category,-8} {command,-28} {description}";
+    }
+
     public static class FileMethods
     {
         public static void ReadFile(IFile file)
@@ -348,9 +441,9 @@ public class DirectoryRoot
             if (File.Exists(path))
             {
                 Console.WriteLine($"Please Enter Text you would like to append to {file.ReturnFileName()}: ");
-                string input = Console.ReadLine();
+                string? input = Console.ReadLine();
 
-                File.AppendAllText(path, input);
+                File.AppendAllText(path, input ?? string.Empty);
             }
         }
         public static void OverwriteFile(Folder baseFolder, IFile file)
@@ -360,7 +453,7 @@ public class DirectoryRoot
             if (File.Exists(path))
             {
                 Console.WriteLine($"Please Enter Text to Overwrite File {file.ReturnFileName()}: ");
-                string input = Console.ReadLine();
+                string? input = Console.ReadLine();
 
                 File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
             }
@@ -375,28 +468,31 @@ public class DirectoryRoot
             }
             else
             {
-                using (File.Create(path))
-                {
-                    Console.WriteLine("Enter New File Text Input: ");
-                    string? input = Console.ReadLine();
+                Console.WriteLine("Enter New File Text Input: ");
+                string? input = Console.ReadLine();
 
-                    File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
-                }
+                File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
             }
         }
 
         public static void MoveFile(Folder baseFolder, IFile file, Folder folderToMoveTo)
         {
-            string filePath = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
-            string folderPath = folderToMoveTo.folderName;
+            if (file == null || folderToMoveTo == null)
+            {
+                Console.WriteLine("Please select a valid file and destination folder.");
+                return;
+            }
 
-            if (Directory.Exists(folderPath))
+            string filePath = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
+            string folderPath = Path.Combine(folderToMoveTo.pathToFolder, file.ReturnFileName());
+
+            if (Directory.Exists(folderToMoveTo.pathToFolder))
             {
                 File.Move(filePath, folderPath);
             }
             else
             {
-                Console.WriteLine("Please Select a Folder to move the file into: \n");
+                Console.WriteLine("Please select a valid destination folder.");
             }
         }
         public static void DeleteFile(Folder baseFolder, IFile fileToDelete)
@@ -421,35 +517,38 @@ public class DirectoryRoot
         public static void EnterFolder(Folder folderToEnter)
         {
             var path = folderToEnter.pathToFolder;
-            if (File.Exists(path))
+            if (Directory.Exists(path))
             {
-                currentFolderloaded = folderToEnter;
-                currentFolderloaded.ListFolderContents();
+                currentFolderloaded = InitializeFolder(folderToEnter.parentFolder, folderToEnter.pathToFolder, folderToEnter.folderName);
             }
 
         }
         public static void ExitFolder(Folder baseFolder)
         {
+            if (baseFolder.parentFolder == null)
+            {
+                return;
+            }
+
             var path = baseFolder.parentFolder.pathToFolder;
 
-            if (File.Exists(path))
+            if (Directory.Exists(path))
             {
-                currentFolderloaded = baseFolder.parentFolder;
-                currentFolderloaded.ListFolderContents();
+                currentFolderloaded = InitializeFolder(baseFolder.parentFolder.parentFolder, baseFolder.parentFolder.pathToFolder, baseFolder.parentFolder.folderName);
             }
         }
         public static void DeleteFolder(Folder folderToDelete)
         {
-            string path = folderToDelete.folderName;
+            string path = folderToDelete.pathToFolder;
 
-            if (File.Exists(path))
+            if (Directory.Exists(path))
             {
                 Console.WriteLine($"Are you sure you want to delete {folderToDelete.folderName}? This includes all files in the folder!!\nYES or NO");
                 string? input = Console.ReadLine();
 
                 if (!string.IsNullOrEmpty(input) && input.ToUpper() == "YES")
                 {
-                    File.Delete(path);
+                    Directory.Delete(path, true);
                 }
             }
         }
@@ -468,16 +567,22 @@ public class DirectoryRoot
         }
         public static void MoveFolder(Folder folderBeingMoved, Folder folderToMoveTo)
         {
-            string filePath = folderBeingMoved.pathToFolder;
-            string folderPath = folderToMoveTo.folderName;
+            if (folderBeingMoved == null || folderToMoveTo == null)
+            {
+                Console.WriteLine("Please select a valid folder and destination folder.");
+                return;
+            }
 
-            if (Directory.Exists(folderPath))
+            string filePath = folderBeingMoved.pathToFolder;
+            string folderPath = Path.Combine(folderToMoveTo.pathToFolder, folderBeingMoved.folderName);
+
+            if (Directory.Exists(folderToMoveTo.pathToFolder))
             {
                 Directory.Move(filePath, folderPath);
             }
             else
             {
-                Console.WriteLine("Please Select a Folder to move the file into: \n");
+                Console.WriteLine("Please select a valid destination folder.");
             }
         }
     }
