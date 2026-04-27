@@ -1,7 +1,8 @@
+using System.IO;
 using System;
 using System.Net.Sockets;
+using System.Net;
 using System.Text;
-
 class Program
 {
     static void Main()
@@ -11,22 +12,19 @@ class Program
 
         try
         {
-            using TcpClient client = new TcpClient(serverIp, port);
-            using NetworkStream stream = client.GetStream();
+            using TcpClient client = new TcpClient(serverIp, port); // Initialize TcpClient
+            NetworkStream stream = client.GetStream();
 
             while (true)
             {
-                Console.Write("Message to Send: ");
-                string? message = Console.ReadLine();
-
-                if (string.IsNullOrEmpty(message))
-                {
-                    continue;
-                }
+                Console.WriteLine("Message to Send: ");
+                var message = Console.ReadLine();
 
                 byte[] data = Encoding.UTF8.GetBytes(message);
                 stream.Write(data, 0, data.Length);
+                
             }
+
         }
         catch (Exception ex)
         {
