@@ -1,7 +1,5 @@
-﻿using ServerFile;
-using System.IO;
+﻿using System.IO;
 using System;
-using FileSystem;
 using System.Net.Sockets;
 using System.Net;
 using System.Text;
@@ -9,7 +7,9 @@ class Program
 {
     static void Main()
     {
-        TcpListener server = new TcpListener(IPAddress.Any, 8080); // opens the server
+        TcpListener server = new TcpListener(IPAddress.Any, 8081); // opens the server
+        server.Start();
+        Console.WriteLine("Sever Started!");
 
         while (true)
         {
@@ -32,7 +32,10 @@ class Program
                 while((dataRead = stream.Read(buffer, 0 , buffer.Length)) > 0)
                 {
                     string stringRead = Encoding.UTF8.GetString(buffer, 0, dataRead);
-                    Console.WriteLine("Data Sent:" );
+                    Console.WriteLine($"Username Read": {stringRead}");
+
+
+                    stream.Write()
                 }
             }
             catch (Exception ex)

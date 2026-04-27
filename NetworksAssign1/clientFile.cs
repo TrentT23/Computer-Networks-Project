@@ -5,24 +5,31 @@ using System.Net;
 using System.Text;
 class Program
 {
-    static void Main()
+    static async Task Main()
     {
-        string serverIp = "192.168.1.136";
-        int port = 8080;
+        string serverIp = "172.60.59.249";
+        int port = 8081;
 
         try
         {
-            using TcpClient client = new TcpClient(serverIp, port); // Initialize TcpClient
+            using TcpClient client = new TcpClient(); // Initialize TcpClient
+            Console.WriteLine($"Attempting to connect to {serverIp}:{port}");
+
+            await client.ConnectAsync(serverIp, port); // Blocks until connection is established!
             NetworkStream stream = client.GetStream();
+            Console.WriteLine("Connected! Please Enter in a Username: ");
 
             while (true)
             {
-                Console.WriteLine("Message to Send: ");
-                var message = Console.ReadLine();
+                string message = Console.ReadLine();
 
-                byte[] data = Encoding.UTF8.GetBytes(message);
+                if (string.IsNullOrEmpty(message))
+                {
+                    continue; // Continue the while loop if the string is null or empty
+                }
+                byte[] data = Encoding.UTF8.GetBytes(message ?? string.Empty);
                 stream.Write(data, 0, data.Length);
-                
+
             }
 
         }

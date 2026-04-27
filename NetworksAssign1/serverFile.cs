@@ -1,7 +1,12 @@
+using FileSystem;
+
 namespace ServerFile
 {
-    public class StartServer()
+    class ServerFiles
     {
-        
+        static void EstablishUsername()
+        {
+
+        }
     }
 }

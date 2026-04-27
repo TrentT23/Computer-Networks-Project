@@ -122,6 +122,15 @@ namespace FileSystem
         {
             public static string Root = Path.Combine(AppContext.BaseDirectory, "ServerFiles");
         }
+        public static void InitializeUserName(string username) // Initializes a new user and starts the File System Loop for the User
+        {
+            string rootPath = Path.Combine(FileSystemConfig.Root, username);
+
+            Directory.CreateDirectory(rootPath);
+
+            currentFolderloaded = InitializeFolder(null, rootPath, username );
+            MainLoop(currentFolderloaded);
+        }
         public static void MainLoop(Folder baseFolder)
         {
             currentFolderloaded = baseFolder;
