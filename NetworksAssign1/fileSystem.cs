@@ -34,27 +34,6 @@ namespace FileSystem
         }
         static Folder currentFolderloaded = new Folder();
         
-        static void ListCommands()
-        {
-            Console.WriteLine();
-            WriteCenteredHeader("Available Commands");
-            Console.WriteLine(new string('-', 78));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("Category", "Command", "What It Does"));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("--------", "-------", "------------"));
-
-            Console.WriteLine(MethodsToShare.FormatCommandRow("File", "READ <index>", "Show the contents of a file."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("File", "APPEND <index>", "Add text to the end of a file."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("File", "OVERWRITE <index>", "Replace all text inside a file."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("Create", "CREATE FILE <name>", "Create a new file, then enter its text."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("Create", "CREATE FOLDER <name>", "Create a new folder in the current folder."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("Delete", "DELETE <index>", "Delete the selected file or folder."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("Move", "MOVE FILE <item> <folder>", "Move a file into a folder."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("Move", "MOVE FOLDER <item> <folder>", "Move a folder into another folder."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("Folder", "ENTER <index>", "Open the selected folder."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("Folder", "EXIT", "Go to the parent folder."));
-            Console.WriteLine(MethodsToShare.FormatCommandRow("System", "QUIT", "Close the program."));
-            Console.WriteLine();
-        }
         public static class FileSystemConfig
         {
             public static string Root = Path.Combine(AppContext.BaseDirectory, "ServerFiles");
@@ -78,7 +57,7 @@ namespace FileSystem
                 currentFolderloaded = InitializeFolder(currentFolderloaded.parentFolder, currentFolderloaded.pathToFolder, currentFolderloaded.folderName);
                 currentFolderloaded.ListFolderContents();
 
-                ListCommands();
+                MethodsToShare.ListCommands();
 
                 string? command = Console.ReadLine();
                 Console.Clear();
