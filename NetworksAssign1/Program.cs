@@ -3,6 +3,8 @@ using System;
 using System.Net.Sockets;
 using System.Net;
 using System.Text;
+using FileSystem;
+using System.Text.Json;
 class Program
 {
     static void Main()
@@ -32,10 +34,13 @@ class Program
                 while((dataRead = stream.Read(buffer, 0 , buffer.Length)) > 0)
                 {
                     string stringRead = Encoding.UTF8.GetString(buffer, 0, dataRead);
-                    Console.WriteLine($"Username Read": {stringRead}");
+                    Console.WriteLine($"Username Read: {stringRead}");
 
+                    var responseObject = new ServerStatusResponse() {currentStatus = STATUS.USERNAME, message = $"Successfully created User {stringRead}"};
+                    string json = JsonSerializer.Serialize(responseObject);
 
-                    stream.Write()
+                    byte[] response = Encoding.UTF8.GetBytes(json);
+                    stream.Write(response, 0, response.Length);
                 }
             }
             catch (Exception ex)
@@ -48,12 +53,26 @@ class Program
                 Console.WriteLine("Client Disconnected!");
             }
         }
-        /*
-        Directory.CreateDirectory(DirectoryRoot.FileSystemConfig.Root);
+      
+    }
 
-        var folder = DirectoryRoot.InitializeFolder(null, DirectoryRoot.FileSystemConfig.Root, "ServerFiles");
+    enum STATUS
+    {
+        USERNAME, 
+        INDIRECTORY
+    }
 
-        DirectoryRoot.MainLoop(folder);
-        */
+    class ServerStatusResponse
+    {
+        public STATUS currentStatus{get; set;}
+        public string? message {get; set;}
+    }
+
+    class ServerFolderAndOutput
+    {
+        SharedModels.Folder? currentFolder {get; set;}
+        public string? output {get; set;}
+        public string? message {get; set;}
+
     }
 }

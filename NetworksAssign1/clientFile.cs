@@ -3,6 +3,7 @@ using System;
 using System.Net.Sockets;
 using System.Net;
 using System.Text;
+using SharedModels;
 class Program
 {
     static async Task Main()
@@ -21,13 +22,13 @@ class Program
 
             while (true)
             {
-                string message = Console.ReadLine();
+                string? message = Console.ReadLine();
 
                 if (string.IsNullOrEmpty(message))
                 {
                     continue; // Continue the while loop if the string is null or empty
                 }
-                byte[] data = Encoding.UTF8.GetBytes(message ?? string.Empty);
+                byte[] data = Encoding.UTF8.GetBytes(message);
                 stream.Write(data, 0, data.Length);
 
             }
