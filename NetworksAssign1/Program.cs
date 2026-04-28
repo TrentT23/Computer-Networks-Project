@@ -42,8 +42,7 @@ class Program
                 message = $"Successfully created User {username}",
                 output = MethodsToShare.GetCommandsText(),
                 waitingOnCommand = true,
-                currentFolder = DirectoryRoot.BuildListing(
-                    DirectoryRoot.InitializeFolder(null, Path.Combine(DirectoryRoot.FileSystemConfig.Root, username), username))
+                currentFolder = DirectoryRoot.BuildListing(session.DirectoryInstance.CurrentFolder)
             });
 
             MainLoop(session, client);

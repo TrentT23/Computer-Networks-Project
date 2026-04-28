@@ -36,7 +36,9 @@ namespace FileSystem
             FOLDER
         }
 
-        static Folder currentFolderloaded = new Folder();
+        private Folder currentFolderloaded = new Folder();
+
+        public Folder CurrentFolder => currentFolderloaded;
 
         public static class FileSystemConfig
         {
@@ -82,13 +84,13 @@ namespace FileSystem
                     switch (fileOp)
                     {
                         case FileOperations.READ:
-                            FileMethods.ReadFile(findFile, client);
+                            FileMethods.ReadFile(this, findFile, client);
                             break;
                         case FileOperations.APPEND:
-                            FileMethods.AppendFile(currentFolderloaded, findFile, client);
+                            FileMethods.AppendFile(this, currentFolderloaded, findFile, client);
                             break;
                         case FileOperations.OVERWRITE:
-                            FileMethods.OverwriteFile(currentFolderloaded, findFile, client);
+                            FileMethods.OverwriteFile(this, currentFolderloaded, findFile, client);
                             break;
                     }
 
@@ -102,7 +104,7 @@ namespace FileSystem
                             var folder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
                             if (folder != null)
                             {
-                                FolderMethods.EnterFolder(folder, client);
+                                FolderMethods.EnterFolder(this, folder, client);
                             }
                             else
                             {
@@ -110,7 +112,7 @@ namespace FileSystem
                             }
                             break;
                         case FolderOperations.EXIT:
-                            FolderMethods.ExitFolder(currentFolderloaded, client);
+                            FolderMethods.ExitFolder(this, currentFolderloaded, client);
                             break;
                     }
 
@@ -136,11 +138,11 @@ namespace FileSystem
 
                                 if (nType == DirectoryType.FILE)
                                 {
-                                    FileMethods.CreateFile(currentFolderloaded, sarg2, client);
+                                    FileMethods.CreateFile(this, currentFolderloaded, sarg2, client);
                                 }
                                 else if (nType == DirectoryType.FOLDER)
                                 {
-                                    FolderMethods.CreateFolder(currentFolderloaded, sarg2, client);
+                                    FolderMethods.CreateFolder(this, currentFolderloaded, sarg2, client);
                                 }
                             }
                             else
@@ -158,11 +160,11 @@ namespace FileSystem
 
                                 if (subFile != null)
                                 {
-                                    FileMethods.DeleteFile(currentFolderloaded, subFile, client);
+                                    FileMethods.DeleteFile(this, currentFolderloaded, subFile, client);
                                 }
                                 else if (subFolder != null)
                                 {
-                                    FolderMethods.DeleteFolder(subFolder, client);
+                                    FolderMethods.DeleteFolder(this, subFolder, client);
                                 }
                                 else
                                 {
@@ -202,13 +204,13 @@ namespace FileSystem
                                 {
                                     var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2);
                                     var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
-                                    FileMethods.MoveFile(currentFolderloaded, findFile, folderToPut, client);
+                                    FileMethods.MoveFile(this, currentFolderloaded, findFile, folderToPut, client);
                                 }
                                 else if (nType == DirectoryType.FOLDER)
                                 {
                                     var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2);
                                     var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
-                                    FolderMethods.MoveFolder(findFolder, folderToPut, client);
+                                    FolderMethods.MoveFolder(this, findFolder, folderToPut, client);
                                 }
                             }
                             else
@@ -271,7 +273,6 @@ namespace FileSystem
 
             baseFolder.subFolders = allFolders;
             baseFolder.subFiles = allFiles;
-            currentFolderloaded = baseFolder;
             return baseFolder;
         }
 
@@ -287,13 +288,13 @@ namespace FileSystem
             return remainder.Trim().Trim('"');
         }
 
-        public static string? PromptClientForInput(TcpClient client, string message)
+        public string? PromptClientForInput(TcpClient client, string message)
         {
             SendResponse(client, BuildResponse(message, null, false, false));
             return ReadClientLine(client);
         }
 
-        public static void SendServerMessage(TcpClient client, string message, bool waitingOnCommand)
+        public void SendServerMessage(TcpClient client, string message, bool waitingOnCommand)
         {
             SendResponse(client, BuildResponse(message, null, waitingOnCommand, false));
         }
@@ -340,7 +341,7 @@ namespace FileSystem
             };
         }
 
-        private static void RefreshCurrentFolder()
+        private void RefreshCurrentFolder()
         {
             if (string.IsNullOrWhiteSpace(currentFolderloaded.pathToFolder) || !Directory.Exists(currentFolderloaded.pathToFolder))
             {
@@ -353,7 +354,7 @@ namespace FileSystem
                 currentFolderloaded.folderName);
         }
 
-        private static ServerStatusResponse BuildResponse(string message, string? output, bool waitingOnCommand, bool shouldClose)
+        private ServerStatusResponse BuildResponse(string message, string? output, bool waitingOnCommand, bool shouldClose)
         {
             RefreshCurrentFolder();
 
@@ -368,75 +369,75 @@ namespace FileSystem
             };
         }
 
-        private static void SendCommandResponse(TcpClient client, string message, string? output = null, bool shouldClose = false)
+        private void SendCommandResponse(TcpClient client, string message, string? output = null, bool shouldClose = false)
         {
             SendResponse(client, BuildResponse(message, output, true, shouldClose));
         }
 
         public static class FileMethods
         {
-            public static void ReadFile(IFile file, TcpClient client)
+            public static void ReadFile(DirectoryRoot root, IFile file, TcpClient client)
             {
-                var fullPath = Path.Combine(currentFolderloaded.pathToFolder, file.ReturnFileName());
+                var fullPath = Path.Combine(root.currentFolderloaded.pathToFolder, file.ReturnFileName());
                 string fileContents = File.ReadAllText(fullPath);
 
-                SendCommandResponse(client, $"Read {file.ReturnFileName()}.", fileContents);
+                root.SendCommandResponse(client, $"Read {file.ReturnFileName()}.\nContents: ", fileContents);
             }
 
-            public static void AppendFile(Folder baseFolder, IFile file, TcpClient client)
+            public static void AppendFile(DirectoryRoot root, Folder baseFolder, IFile file, TcpClient client)
             {
                 string path = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
 
                 if (File.Exists(path))
                 {
-                    string? input = PromptClientForInput(client, $"Please Enter Text you would like to append to {file.ReturnFileName()}: ");
+                    string? input = root.PromptClientForInput(client, $"Please Enter Text you would like to append to {file.ReturnFileName()}: ");
                     File.AppendAllText(path, input ?? string.Empty);
-                    SendCommandResponse(client, $"Appended text to {file.ReturnFileName()}.");
+                    root.SendCommandResponse(client, $"Appended text to {file.ReturnFileName()}.");
                 }
                 else
                 {
-                    SendCommandResponse(client, "File could not be found.");
+                    root.SendCommandResponse(client, "File could not be found.");
                 }
             }
 
-            public static void OverwriteFile(Folder baseFolder, IFile file, TcpClient client)
+            public static void OverwriteFile(DirectoryRoot root, Folder baseFolder, IFile file, TcpClient client)
             {
                 string path = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
 
                 if (File.Exists(path))
                 {
-                    string? input = PromptClientForInput(client, $"Please Enter Text to Overwrite File {file.ReturnFileName()}: ");
+                    string? input = root.PromptClientForInput(client, $"Please Enter Text to Overwrite File {file.ReturnFileName()}: ");
                     File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
-                    SendCommandResponse(client, $"Overwrote {file.ReturnFileName()}.");
+                    root.SendCommandResponse(client, $"Overwrote {file.ReturnFileName()}.");
                 }
                 else
                 {
-                    SendCommandResponse(client, "File could not be found.");
+                    root.SendCommandResponse(client, "File could not be found.");
                 }
             }
 
-            public static void CreateFile(Folder baseFolder, string name, TcpClient client)
+            public static void CreateFile(DirectoryRoot root, Folder baseFolder, string name, TcpClient client)
             {
                 string fileName = !string.IsNullOrEmpty(name) ? name : $"newfile{baseFolder.subFiles.Count() + 1}";
                 string path = Path.Combine(baseFolder.pathToFolder, fileName);
 
                 if (File.Exists(path))
                 {
-                    SendCommandResponse(client, "File Already Exists in this Location!");
+                    root.SendCommandResponse(client, "File Already Exists in this Location!");
                 }
                 else
                 {
-                    string? input = PromptClientForInput(client, "Enter New File Text Input: ");
+                    string? input = root.PromptClientForInput(client, "Enter New File Text Input: ");
                     File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
-                    SendCommandResponse(client, $"Created file {fileName}.");
+                    root.SendCommandResponse(client, $"Created file {fileName}.");
                 }
             }
 
-            public static void MoveFile(Folder baseFolder, IFile? file, Folder? folderToMoveTo, TcpClient client)
+            public static void MoveFile(DirectoryRoot root, Folder baseFolder, IFile? file, Folder? folderToMoveTo, TcpClient client)
             {
                 if (file == null || folderToMoveTo == null)
                 {
-                    SendCommandResponse(client, "Please select a valid file and destination folder.");
+                    root.SendCommandResponse(client, "Please select a valid file and destination folder.");
                     return;
                 }
 
@@ -446,60 +447,60 @@ namespace FileSystem
                 if (Directory.Exists(folderToMoveTo.pathToFolder))
                 {
                     File.Move(filePath, folderPath);
-                    SendCommandResponse(client, $"Moved file {file.ReturnFileName()} to {folderToMoveTo.folderName}.");
+                    root.SendCommandResponse(client, $"Moved file {file.ReturnFileName()} to {folderToMoveTo.folderName}.");
                 }
                 else
                 {
-                    SendCommandResponse(client, "Please select a valid destination folder.");
+                    root.SendCommandResponse(client, "Please select a valid destination folder.");
                 }
             }
 
-            public static void DeleteFile(Folder baseFolder, IFile fileToDelete, TcpClient client)
+            public static void DeleteFile(DirectoryRoot root, Folder baseFolder, IFile fileToDelete, TcpClient client)
             {
                 string path = Path.Combine(baseFolder.pathToFolder, fileToDelete.ReturnFileName());
 
                 if (File.Exists(path))
                 {
-                    string? input = PromptClientForInput(client, $"Are you sure you want to delete {fileToDelete.ReturnFileName()}?\nYES or NO");
+                    string? input = root.PromptClientForInput(client, $"Are you sure you want to delete {fileToDelete.ReturnFileName()}?\nYES or NO");
 
                     if (!string.IsNullOrEmpty(input) && input.ToUpper() == "YES")
                     {
                         File.Delete(path);
-                        SendCommandResponse(client, $"Deleted file {fileToDelete.ReturnFileName()}.");
+                        root.SendCommandResponse(client, $"Deleted file {fileToDelete.ReturnFileName()}.");
                     }
                     else
                     {
-                        SendCommandResponse(client, $"Did not delete {fileToDelete.ReturnFileName()}.");
+                        root.SendCommandResponse(client, $"Did not delete {fileToDelete.ReturnFileName()}.");
                     }
                 }
                 else
                 {
-                    SendCommandResponse(client, "File could not be found.");
+                    root.SendCommandResponse(client, "File could not be found.");
                 }
             }
         }
 
         public static class FolderMethods
         {
-            public static void EnterFolder(Folder folderToEnter, TcpClient client)
+            public static void EnterFolder(DirectoryRoot root, Folder folderToEnter, TcpClient client)
             {
                 var path = folderToEnter.pathToFolder;
                 if (Directory.Exists(path))
                 {
-                    currentFolderloaded = InitializeFolder(folderToEnter.parentFolder, folderToEnter.pathToFolder, folderToEnter.folderName);
-                    SendCommandResponse(client, $"Entered folder {folderToEnter.folderName}.");
+                    root.currentFolderloaded = InitializeFolder(folderToEnter.parentFolder, folderToEnter.pathToFolder, folderToEnter.folderName);
+                    root.SendCommandResponse(client, $"Entered folder {folderToEnter.folderName}.");
                 }
                 else
                 {
-                    SendCommandResponse(client, "Could not find Folder to Enter!");
+                    root.SendCommandResponse(client, "Could not find Folder to Enter!");
                 }
             }
 
-            public static void ExitFolder(Folder baseFolder, TcpClient client)
+            public static void ExitFolder(DirectoryRoot root, Folder baseFolder, TcpClient client)
             {
                 if (baseFolder.parentFolder == null)
                 {
-                    SendCommandResponse(client, "Already at the root folder.");
+                    root.SendCommandResponse(client, "Already at the root folder.");
                     return;
                 }
 
@@ -507,60 +508,60 @@ namespace FileSystem
 
                 if (Directory.Exists(path))
                 {
-                    currentFolderloaded = InitializeFolder(baseFolder.parentFolder.parentFolder, baseFolder.parentFolder.pathToFolder, baseFolder.parentFolder.folderName);
-                    SendCommandResponse(client, $"Exited to folder {baseFolder.parentFolder.folderName}.");
+                    root.currentFolderloaded = InitializeFolder(baseFolder.parentFolder.parentFolder, baseFolder.parentFolder.pathToFolder, baseFolder.parentFolder.folderName);
+                    root.SendCommandResponse(client, $"Exited to folder {baseFolder.parentFolder.folderName}.");
                 }
                 else
                 {
-                    SendCommandResponse(client, "Could not exit to parent folder.");
+                    root.SendCommandResponse(client, "Could not exit to parent folder.");
                 }
             }
 
-            public static void DeleteFolder(Folder folderToDelete, TcpClient client)
+            public static void DeleteFolder(DirectoryRoot root, Folder folderToDelete, TcpClient client)
             {
                 string path = folderToDelete.pathToFolder;
 
                 if (Directory.Exists(path))
                 {
-                    string? input = PromptClientForInput(client, $"Are you sure you want to delete {folderToDelete.folderName}? This includes all files in the folder!!\nYES or NO");
+                    string? input = root.PromptClientForInput(client, $"Are you sure you want to delete {folderToDelete.folderName}? This includes all files in the folder!!\nYES or NO");
 
                     if (!string.IsNullOrEmpty(input) && input.ToUpper() == "YES")
                     {
                         Directory.Delete(path, true);
-                        SendCommandResponse(client, $"Deleted folder {folderToDelete.folderName}.");
+                        root.SendCommandResponse(client, $"Deleted folder {folderToDelete.folderName}.");
                     }
                     else
                     {
-                        SendCommandResponse(client, $"Did not delete {folderToDelete.folderName}.");
+                        root.SendCommandResponse(client, $"Did not delete {folderToDelete.folderName}.");
                     }
                 }
                 else
                 {
-                    SendCommandResponse(client, "Folder could not be found.");
+                    root.SendCommandResponse(client, "Folder could not be found.");
                 }
             }
 
-            public static void CreateFolder(Folder baseFolder, string nameOfFolder, TcpClient client)
+            public static void CreateFolder(DirectoryRoot root, Folder baseFolder, string nameOfFolder, TcpClient client)
             {
                 string folderName = !string.IsNullOrEmpty(nameOfFolder) ? nameOfFolder : $"newfile{baseFolder.subFiles.Count() + 1}";
                 string path = Path.Combine(baseFolder.pathToFolder, folderName);
 
                 if (Directory.Exists(path))
                 {
-                    SendCommandResponse(client, "Folder Already Exists in this Folder!");
+                    root.SendCommandResponse(client, "Folder Already Exists in this Folder!");
                 }
                 else
                 {
                     Directory.CreateDirectory(path);
-                    SendCommandResponse(client, $"Created folder {folderName}.");
+                    root.SendCommandResponse(client, $"Created folder {folderName}.");
                 }
             }
 
-            public static void MoveFolder(Folder? folderBeingMoved, Folder? folderToMoveTo, TcpClient client)
+            public static void MoveFolder(DirectoryRoot root, Folder? folderBeingMoved, Folder? folderToMoveTo, TcpClient client)
             {
                 if (folderBeingMoved == null || folderToMoveTo == null)
                 {
-                    SendCommandResponse(client, "Please select a valid folder and destination folder.");
+                    root.SendCommandResponse(client, "Please select a valid folder and destination folder.");
                     return;
                 }
 
@@ -570,11 +571,11 @@ namespace FileSystem
                 if (Directory.Exists(folderToMoveTo.pathToFolder))
                 {
                     Directory.Move(filePath, folderPath);
-                    SendCommandResponse(client, $"Moved folder {folderBeingMoved.folderName} to {folderToMoveTo.folderName}.");
+                    root.SendCommandResponse(client, $"Moved folder {folderBeingMoved.folderName} to {folderToMoveTo.folderName}.");
                 }
                 else
                 {
-                    SendCommandResponse(client, "Please select a valid destination folder.");
+                    root.SendCommandResponse(client, "Please select a valid destination folder.");
                 }
             }
         }
