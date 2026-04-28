@@ -55,6 +55,7 @@ class Program
             }
 
             ServerStatusResponse? response = JsonSerializer.Deserialize<ServerStatusResponse>(json);
+            Console.WriteLine();
             if (!string.IsNullOrWhiteSpace(response?.message))
             {
                 Console.WriteLine(response.message);

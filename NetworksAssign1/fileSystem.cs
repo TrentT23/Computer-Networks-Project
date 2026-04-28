@@ -381,7 +381,7 @@ namespace FileSystem
                 var fullPath = Path.Combine(root.currentFolderloaded.pathToFolder, file.ReturnFileName());
                 string fileContents = File.ReadAllText(fullPath);
 
-                root.SendCommandResponse(client, $"Read {file.ReturnFileName()}.\nContents: ", fileContents);
+                root.SendCommandResponse(client, $"Read {file.ReturnFileName()}.\n\nContents: ", fileContents);
             }
 
             public static void AppendFile(DirectoryRoot root, Folder baseFolder, IFile file, TcpClient client)
