@@ -1,78 +1,93 @@
-﻿using System.IO;
-using System;
+﻿using System.Net;
 using System.Net.Sockets;
-using System.Net;
-using System.Text;
 using FileSystem;
-using System.Text.Json;
+using SharedModels;
+
 class Program
 {
     static void Main()
     {
-        TcpListener server = new TcpListener(IPAddress.Any, 8081); // opens the server
+        TcpListener server = new TcpListener(IPAddress.Any, 8080);
         server.Start();
-        Console.WriteLine("Sever Started!");
+        Console.WriteLine("Server Started!");
 
         while (true)
         {
-            TcpClient client = server.AcceptTcpClient(); // Accepts a client
+            TcpClient client = server.AcceptTcpClient();
+            UserSession session = new UserSession();
 
-            Thread cThread = new Thread(() => StartUserFileChat(client));
+            Thread cThread = new Thread(() => StartUserFileChat(client, session));
             cThread.Start();
         }
     }
 
-    static void StartUserFileChat(TcpClient client)
+    static void StartUserFileChat(TcpClient client, UserSession session)
     {
-        using (NetworkStream stream = client.GetStream())
+        try
         {
-            byte[] buffer = new byte[1024]; // Holds the bytes sent from the client
-            int dataRead;
-
-            try
+            string? username = DirectoryRoot.ReadClientLine(client);
+            if (string.IsNullOrWhiteSpace(username))
             {
-                while((dataRead = stream.Read(buffer, 0 , buffer.Length)) > 0)
-                {
-                    string stringRead = Encoding.UTF8.GetString(buffer, 0, dataRead);
-                    Console.WriteLine($"Username Read: {stringRead}");
+                return;
+            }
 
-                    var responseObject = new ServerStatusResponse() {currentStatus = STATUS.USERNAME, message = $"Successfully created User {stringRead}"};
-                    string json = JsonSerializer.Serialize(responseObject);
+            Console.WriteLine($"Username Read: {username}");
+            session.Username = username;
+            session.DirectoryInstance.InitializeUserName(username);
 
-                    byte[] response = Encoding.UTF8.GetBytes(json);
-                    stream.Write(response, 0, response.Length);
-                }
-            }
-            catch (Exception ex)
+            // CODEx change: send the initial folder state with the welcome response.
+            DirectoryRoot.SendResponse(client, new ServerStatusResponse()
             {
-                Console.WriteLine($"Error! {ex.Message}");
-            }
-            finally
-            {
-                client.Close();
-                Console.WriteLine("Client Disconnected!");
-            }
+                currentStatus = STATUS.INDIRECTORY,
+                message = $"Successfully created User {username}",
+                output = MethodsToShare.GetCommandsText(),
+                waitingOnCommand = true,
+                currentFolder = DirectoryRoot.BuildListing(
+                    DirectoryRoot.InitializeFolder(null, Path.Combine(DirectoryRoot.FileSystemConfig.Root, username), username))
+            });
+
+            MainLoop(session, client);
         }
-      
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error! {ex.Message}");
+        }
+        finally
+        {
+            client.Close();
+            Console.WriteLine("Client Disconnected!");
+        }
     }
 
-    enum STATUS
+    static void MainLoop(UserSession session, TcpClient client)
     {
-        USERNAME, 
-        INDIRECTORY
+        bool endLoop = false;
+
+        while (!endLoop && client.Connected)
+        {
+            string? commandRead = DirectoryRoot.ReadClientLine(client);
+            if (commandRead == null)
+            {
+                break;
+            }
+
+            if (string.IsNullOrWhiteSpace(commandRead))
+            {
+                continue;
+            }
+
+            endLoop = session.DirectoryInstance.ParseCommand(commandRead, client);
+        }
     }
 
-    class ServerStatusResponse
+    class UserSession
     {
-        public STATUS currentStatus{get; set;}
-        public string? message {get; set;}
-    }
+        public string Username { get; set; } = string.Empty;
+        public DirectoryRoot DirectoryInstance { get; set; }
 
-    class ServerFolderAndOutput
-    {
-        SharedModels.Folder? currentFolder {get; set;}
-        public string? output {get; set;}
-        public string? message {get; set;}
-
+        public UserSession()
+        {
+            DirectoryInstance = new DirectoryRoot();
+        }
     }
 }

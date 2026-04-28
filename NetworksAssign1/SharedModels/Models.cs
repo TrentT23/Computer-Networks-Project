@@ -15,19 +15,37 @@ public enum DirectoryEntryType
     File,
     Folder
 }
-
-public class ClientRequest
+public enum STATUS
 {
-    public string Username { get; set; } = string.Empty;
-    public string Command { get; set; } = string.Empty;
+    USERNAME,
+    INDIRECTORY
 }
 
-public class ServerResponse
+
+public class ServerStatusResponse
 {
-    public bool Success { get; set; }
-    public SessionStatus CurrentStatus { get; set; }
-    public string Message { get; set; } = string.Empty;
-    public Folder? Folder { get; set; }
+    public STATUS currentStatus { get; set; }
+    public string? message { get; set; }
+    public string? output { get; set; }
+    public DirectoryListing? currentFolder { get; set; }
+    public bool waitingOnCommand {get;set;}
+    public bool shouldClose { get; set; }
+}
+
+public class DirectoryListing
+{
+    public string folderName { get; set; } = string.Empty;
+    public string? parentFolderName { get; set; }
+    public List<string> subFolders { get; set; } = new();
+    public List<string> subFiles { get; set; } = new();
+}
+
+public class ServerFolderAndOutput
+{
+    SharedModels.Folder? currentFolder { get; set; }
+    public string? output { get; set; }
+    public string? message { get; set; }
+
 }
 
 // Folder and File System -- shared by client and server for sending and receiving data. 
@@ -91,26 +109,36 @@ public class Folder
 }
 public static class MethodsToShare
 {
+    public static string GetCommandsText()
+    {
+        var lines = new List<string>
+        {
+            "Available Commands",
+            new string('-', 78),
+            FormatCommandRow("Category", "Command", "What It Does"),
+            FormatCommandRow("--------", "-------", "------------"),
+            FormatCommandRow("File", "READ <index>", "Show the contents of a file."),
+            FormatCommandRow("File", "APPEND <index>", "Add text to the end of a file."),
+            FormatCommandRow("File", "OVERWRITE <index>", "Replace all text inside a file."),
+            FormatCommandRow("Create", "CREATE FILE <name>", "Create a new file, then enter its text."),
+            FormatCommandRow("Create", "CREATE FOLDER <name>", "Create a new folder in the current folder."),
+            FormatCommandRow("Delete", "DELETE <index>", "Delete the selected file or folder."),
+            FormatCommandRow("Move", "MOVE FILE <item> <folder>", "Move a file into a folder."),
+            FormatCommandRow("Move", "MOVE FOLDER <item> <folder>", "Move a folder into another folder."),
+            FormatCommandRow("Folder", "ENTER <index>", "Open the selected folder."),
+            FormatCommandRow("Folder", "EXIT", "Go to the parent folder."),
+            FormatCommandRow("Help", "HELP", "Show the command list again."),
+            FormatCommandRow("System", "QUIT", "Close the program."),
+            string.Empty
+        };
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
     public static void ListCommands()
     {
         Console.WriteLine();
-        WriteCenteredHeader("Available Commands");
-        Console.WriteLine(new string('-', 78));
-        Console.WriteLine(FormatCommandRow("Category", "Command", "What It Does"));
-        Console.WriteLine(FormatCommandRow("--------", "-------", "------------"));
-
-        Console.WriteLine(FormatCommandRow("File", "READ <index>", "Show the contents of a file."));
-        Console.WriteLine(FormatCommandRow("File", "APPEND <index>", "Add text to the end of a file."));
-        Console.WriteLine(FormatCommandRow("File", "OVERWRITE <index>", "Replace all text inside a file."));
-        Console.WriteLine(FormatCommandRow("Create", "CREATE FILE <name>", "Create a new file, then enter its text."));
-        Console.WriteLine(FormatCommandRow("Create", "CREATE FOLDER <name>", "Create a new folder in the current folder."));
-        Console.WriteLine(FormatCommandRow("Delete", "DELETE <index>", "Delete the selected file or folder."));
-        Console.WriteLine(FormatCommandRow("Move", "MOVE FILE <item> <folder>", "Move a file into a folder."));
-        Console.WriteLine(FormatCommandRow("Move", "MOVE FOLDER <item> <folder>", "Move a folder into another folder."));
-        Console.WriteLine(FormatCommandRow("Folder", "ENTER <index>", "Open the selected folder."));
-        Console.WriteLine(FormatCommandRow("Folder", "EXIT", "Go to the parent folder."));
-        Console.WriteLine(FormatCommandRow("System", "QUIT", "Close the program."));
-        Console.WriteLine();
+        Console.Write(GetCommandsText());
     }
     public static string FormatListingRow(string index, string type, string name)
     {
@@ -152,5 +180,3 @@ public class TextFile : IFile
     public int placeInParentFolder { get; set; }
     public int ReturnPlaceInParent() => placeInParentFolder;
 }
-
-

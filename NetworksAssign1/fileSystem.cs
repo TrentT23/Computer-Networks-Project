@@ -2,10 +2,12 @@ using ServerFile;
 using System.IO;
 using System;
 using SharedModels;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
 
 namespace FileSystem
 {
-
     public class DirectoryRoot
     {
         public enum FileOperations
@@ -24,6 +26,7 @@ namespace FileSystem
             CREATE,
             DELETE,
             MOVE,
+            HELP,
             QUIT
         }
 
@@ -32,209 +35,200 @@ namespace FileSystem
             FILE,
             FOLDER
         }
+
         static Folder currentFolderloaded = new Folder();
-        
+
         public static class FileSystemConfig
         {
             public static string Root = Path.Combine(AppContext.BaseDirectory, "ServerFiles");
         }
-        public static void InitializeUserName(string username) // Initializes a new user and starts the File System Loop for the User
+
+        public void InitializeUserName(string username)
         {
             string rootPath = Path.Combine(FileSystemConfig.Root, username);
-
             Directory.CreateDirectory(rootPath);
-
-            currentFolderloaded = InitializeFolder(null, rootPath, username );
-            MainLoop(currentFolderloaded);
-        }
-        public static void MainLoop(Folder baseFolder)
-        {
-            currentFolderloaded = baseFolder;
-            bool endLoop = false;
-
-            while (endLoop == false)
-            {
-                currentFolderloaded = InitializeFolder(currentFolderloaded.parentFolder, currentFolderloaded.pathToFolder, currentFolderloaded.folderName);
-                currentFolderloaded.ListFolderContents();
-
-                MethodsToShare.ListCommands();
-
-                string? command = Console.ReadLine();
-                Console.Clear();
-
-
-                if (!string.IsNullOrEmpty(command))
-                {
-                    bool loop = ParseCommand(command);
-                    endLoop = loop;
-                }
-            }
+            currentFolderloaded = InitializeFolder(null, rootPath, username);
         }
 
-        static bool ParseCommand(string fullCommand)
+        // CODEx change: kept your original bool-returning flow, but responses now go back to the client.
+        public bool ParseCommand(string fullCommand, TcpClient client)
         {
             try
             {
                 string[] parts = fullCommand.Split(new char[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
 
-                if (parts.Length > 0 && !string.IsNullOrEmpty(parts[0]))
+                if (parts.Length == 0 || string.IsNullOrWhiteSpace(parts[0]))
                 {
-                    int arg1 = -1;
-                    if (parts.Length > 1)
-                    {
-                        int.TryParse(parts[1], out arg1);
-                    }
-
-                    if (Enum.TryParse<FileOperations>(parts[0].ToUpper(), out FileOperations fileOp))
-                    {
-                        var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
-
-                        if (findFile == null)
-                        {
-                            WriteCenteredHeader("Cannot read a Folder!");
-                        }
-                        else
-                        {
-                            switch (fileOp)
-                            {
-                                case FileOperations.READ:
-                                    FileMethods.ReadFile(findFile);
-                                    break;
-                                case FileOperations.APPEND:
-                                    FileMethods.AppendFile(currentFolderloaded, findFile);
-                                    break;
-                                case FileOperations.OVERWRITE:
-                                    FileMethods.OverwriteFile(currentFolderloaded, findFile);
-                                    break;
-                            }
-                        }
-                    }
-                    else if (Enum.TryParse<FolderOperations>(parts[0].ToUpper(), out FolderOperations folderOp))
-                    {
-                        switch (folderOp)
-                        {
-                            case FolderOperations.ENTER:
-                                var folder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
-                                if (folder != null)
-                                {
-                                    FolderMethods.EnterFolder(folder);
-                                    break;
-                                }
-                                Console.WriteLine("Could not find Folder to Enter!");
-                                break;
-                            case FolderOperations.EXIT:
-                                FolderMethods.ExitFolder(currentFolderloaded);
-                                break;
-                        }
-                    }
-                    else if (Enum.TryParse<SharedOperations>(parts[0].ToUpper(), out SharedOperations sharedOp))
-                    {
-                        switch (sharedOp)
-                        {
-                            case SharedOperations.CREATE:
-                                {
-                                    if (parts.Length < 2)
-                                    {
-                                        Console.WriteLine("Please specify FILE or FOLDER.");
-                                        break;
-                                    }
-
-                                    string sarg1 = parts[1];
-                                    string sarg2 = ExtractCreateName(fullCommand, sarg1);
-                                    if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
-                                    {
-                                        sarg2 = !string.IsNullOrEmpty(sarg2) ? sarg2 : string.Empty;
-
-                                        if (nType == DirectoryType.FILE)
-                                        {
-                                            FileMethods.CreateFile(currentFolderloaded, sarg2);
-                                        }
-                                        else if (nType == DirectoryType.FOLDER)
-                                        {
-                                            FolderMethods.CreateFolder(currentFolderloaded, sarg2);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine("Please specify FILE or FOLDER.");
-                                    }
-                                    break;
-                                }
-                            case SharedOperations.DELETE:
-                                {
-                                    if (arg1 != -1)
-                                    {
-                                        var subFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
-                                        var subFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
-
-                                        if (subFile != null)
-                                        {
-                                            FileMethods.DeleteFile(currentFolderloaded, subFile);
-
-                                        }
-                                        else if (subFolder != null)
-                                        {
-                                            FolderMethods.DeleteFolder(subFolder);
-
-                                        }
-                                    }
-                                    break;
-                                }
-                            case SharedOperations.QUIT: // returns a true boolean to indicate program exit
-                                return true;
-
-                            case SharedOperations.MOVE:
-                                {
-                                    if (parts.Length < 4)
-                                    {
-                                        Console.WriteLine("Use MOVE FILE <item> <folder> or MOVE FOLDER <item> <folder>.");
-                                        break;
-                                    }
-
-                                    string sarg1 = parts[1];
-
-                                    if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
-                                    {
-                                        int arg2 = int.TryParse(parts[2], out int temp1) ? temp1 : temp1 = -1;
-                                        int arg3 = int.TryParse(parts[3], out int temp2) ? temp2 : temp2 = -1;
-
-                                        if (nType == DirectoryType.FILE)
-                                        {
-                                            var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2);
-                                            var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
-                                            if (findFile != null && folderToPut != null)
-                                            {
-                                                FileMethods.MoveFile(currentFolderloaded, findFile, folderToPut);
-                                            }
-                                            else
-                                            {
-                                                Console.WriteLine("Please select a valid file and destination folder.");
-                                            }
-                                        }
-                                        else if (nType == DirectoryType.FOLDER)
-                                        {
-                                            var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2);
-                                            var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
-                                            if (findFolder != null && folderToPut != null)
-                                            {
-                                                FolderMethods.MoveFolder(findFolder, folderToPut);
-                                            }
-                                            else
-                                            {
-                                                Console.WriteLine("Please select a valid folder and destination folder.");
-                                            }
-                                        }
-                                    }
-                                    break;
-                                }
-                        }
-                    }
-
+                    SendCommandResponse(client, "Please enter a valid command.");
+                    return false;
                 }
+
+                int arg1 = -1;
+                if (parts.Length > 1)
+                {
+                    int.TryParse(parts[1], out arg1);
+                }
+
+                if (Enum.TryParse<FileOperations>(parts[0].ToUpper(), out FileOperations fileOp))
+                {
+                    var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
+
+                    if (findFile == null)
+                    {
+                        SendCommandResponse(client, "Cannot read a Folder!");
+                        return false;
+                    }
+
+                    switch (fileOp)
+                    {
+                        case FileOperations.READ:
+                            FileMethods.ReadFile(findFile, client);
+                            break;
+                        case FileOperations.APPEND:
+                            FileMethods.AppendFile(currentFolderloaded, findFile, client);
+                            break;
+                        case FileOperations.OVERWRITE:
+                            FileMethods.OverwriteFile(currentFolderloaded, findFile, client);
+                            break;
+                    }
+
+                    return false;
+                }
+                else if (Enum.TryParse<FolderOperations>(parts[0].ToUpper(), out FolderOperations folderOp))
+                {
+                    switch (folderOp)
+                    {
+                        case FolderOperations.ENTER:
+                            var folder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
+                            if (folder != null)
+                            {
+                                FolderMethods.EnterFolder(folder, client);
+                            }
+                            else
+                            {
+                                SendCommandResponse(client, "Could not find Folder to Enter!");
+                            }
+                            break;
+                        case FolderOperations.EXIT:
+                            FolderMethods.ExitFolder(currentFolderloaded, client);
+                            break;
+                    }
+
+                    return false;
+                }
+                else if (Enum.TryParse<SharedOperations>(parts[0].ToUpper(), out SharedOperations sharedOp))
+                {
+                    switch (sharedOp)
+                    {
+                        case SharedOperations.CREATE:
+                        {
+                            if (parts.Length < 2)
+                            {
+                                SendCommandResponse(client, "Please specify FILE or FOLDER.");
+                                break;
+                            }
+
+                            string sarg1 = parts[1];
+                            string sarg2 = ExtractCreateName(fullCommand, sarg1);
+                            if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
+                            {
+                                sarg2 = !string.IsNullOrEmpty(sarg2) ? sarg2 : string.Empty;
+
+                                if (nType == DirectoryType.FILE)
+                                {
+                                    FileMethods.CreateFile(currentFolderloaded, sarg2, client);
+                                }
+                                else if (nType == DirectoryType.FOLDER)
+                                {
+                                    FolderMethods.CreateFolder(currentFolderloaded, sarg2, client);
+                                }
+                            }
+                            else
+                            {
+                                SendCommandResponse(client, "Please specify FILE or FOLDER.");
+                            }
+                            break;
+                        }
+                        case SharedOperations.DELETE:
+                        {
+                            if (arg1 != -1)
+                            {
+                                var subFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
+                                var subFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
+
+                                if (subFile != null)
+                                {
+                                    FileMethods.DeleteFile(currentFolderloaded, subFile, client);
+                                }
+                                else if (subFolder != null)
+                                {
+                                    FolderMethods.DeleteFolder(subFolder, client);
+                                }
+                                else
+                                {
+                                    SendCommandResponse(client, "Please select a valid file or folder.");
+                                }
+                            }
+                            else
+                            {
+                                SendCommandResponse(client, "Please select a valid file or folder.");
+                            }
+                            break;
+                        }
+                        case SharedOperations.QUIT:
+                            SendCommandResponse(client, "Closing session.", shouldClose: true);
+                            return true;
+
+                        case SharedOperations.HELP:
+                            SendCommandResponse(client, "Command list:", MethodsToShare.GetCommandsText());
+                            break;
+
+                        case SharedOperations.MOVE:
+                        {
+                            if (parts.Length < 4)
+                            {
+                                SendCommandResponse(client, "Use MOVE FILE <item> <folder> or MOVE FOLDER <item> <folder>.");
+                                break;
+                            }
+
+                            string sarg1 = parts[1];
+
+                            if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
+                            {
+                                int arg2 = int.TryParse(parts[2], out int temp1) ? temp1 : -1;
+                                int arg3 = int.TryParse(parts[3], out int temp2) ? temp2 : -1;
+
+                                if (nType == DirectoryType.FILE)
+                                {
+                                    var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2);
+                                    var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
+                                    FileMethods.MoveFile(currentFolderloaded, findFile, folderToPut, client);
+                                }
+                                else if (nType == DirectoryType.FOLDER)
+                                {
+                                    var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2);
+                                    var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
+                                    FolderMethods.MoveFolder(findFolder, folderToPut, client);
+                                }
+                            }
+                            else
+                            {
+                                SendCommandResponse(client, "Please specify FILE or FOLDER.");
+                            }
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    SendCommandResponse(client, "Unknown command.");
+                }
+
                 return false;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                SendCommandResponse(client, $"Command failed: {ex.Message}");
                 return false;
             }
         }
@@ -277,45 +271,8 @@ namespace FileSystem
 
             baseFolder.subFolders = allFolders;
             baseFolder.subFiles = allFiles;
-
             currentFolderloaded = baseFolder;
-
             return baseFolder;
-        }
-
-        public static void ReturnToParent()
-        {
-            Folder? pathParent = currentFolderloaded.parentFolder;
-
-            if (pathParent != null)
-            {
-                InitializeFolder(pathParent.parentFolder, pathParent.pathToFolder, pathParent.folderName);
-            }
-        }
-
-        public static void WriteCenteredHeader(string text)
-        {
-            int windowWidth = GetSafeConsoleWidth();
-            int stringLength = text.Length;
-            int leftPadding = Math.Max(0, (windowWidth - stringLength) / 2);
-
-            Console.WriteLine(text.PadLeft(leftPadding + stringLength));
-        }
-
-        private static int GetSafeConsoleWidth()
-        {
-            try
-            {
-                return Console.WindowWidth > 0 ? Console.WindowWidth : 80;
-            }
-            catch (IOException)
-            {
-                return 80;
-            }
-            catch (InvalidOperationException)
-            {
-                return 80;
-            }
         }
 
         private static string ExtractCreateName(string fullCommand, string directoryType)
@@ -329,74 +286,157 @@ namespace FileSystem
             string remainder = fullCommand.Substring(prefix.Length).Trim();
             return remainder.Trim().Trim('"');
         }
-        /*
-        private static string FormatListingRow(string index, string type, string name)
+
+        public static string? PromptClientForInput(TcpClient client, string message)
         {
-            return $"{index,-7} {type,-8} {name}";
+            SendResponse(client, BuildResponse(message, null, false, false));
+            return ReadClientLine(client);
         }
 
-        private static string MethodsToShare.FormatCommandRow(string category, string command, string description)
+        public static void SendServerMessage(TcpClient client, string message, bool waitingOnCommand)
         {
-            return $"{category,-8} {command,-28} {description}";
+            SendResponse(client, BuildResponse(message, null, waitingOnCommand, false));
         }
-        */
+
+        public static void SendResponse(TcpClient client, ServerStatusResponse response)
+        {
+            string json = JsonSerializer.Serialize(response) + Environment.NewLine;
+            byte[] responseBytes = Encoding.UTF8.GetBytes(json);
+            NetworkStream stream = client.GetStream();
+            stream.Write(responseBytes, 0, responseBytes.Length);
+        }
+
+        public static string? ReadClientLine(TcpClient client)
+        {
+            NetworkStream stream = client.GetStream();
+            List<byte> data = new List<byte>();
+            byte[] buffer = new byte[1];
+
+            while (true)
+            {
+                int bytesRead = stream.Read(buffer, 0, 1);
+                if (bytesRead <= 0)
+                {
+                    return data.Count == 0 ? null : Encoding.UTF8.GetString(data.ToArray()).TrimEnd('\r');
+                }
+
+                if (buffer[0] == (byte)'\n')
+                {
+                    return Encoding.UTF8.GetString(data.ToArray()).TrimEnd('\r');
+                }
+
+                data.Add(buffer[0]);
+            }
+        }
+
+        public static DirectoryListing BuildListing(Folder folder)
+        {
+            return new DirectoryListing()
+            {
+                folderName = folder.folderName,
+                parentFolderName = folder.parentFolder?.folderName,
+                subFolders = folder.subFolders.Select(x => x.folderName).ToList(),
+                subFiles = folder.subFiles.Select(x => x.ReturnFileName()).ToList()
+            };
+        }
+
+        private static void RefreshCurrentFolder()
+        {
+            if (string.IsNullOrWhiteSpace(currentFolderloaded.pathToFolder) || !Directory.Exists(currentFolderloaded.pathToFolder))
+            {
+                return;
+            }
+
+            currentFolderloaded = InitializeFolder(
+                currentFolderloaded.parentFolder,
+                currentFolderloaded.pathToFolder,
+                currentFolderloaded.folderName);
+        }
+
+        private static ServerStatusResponse BuildResponse(string message, string? output, bool waitingOnCommand, bool shouldClose)
+        {
+            RefreshCurrentFolder();
+
+            return new ServerStatusResponse()
+            {
+                currentStatus = STATUS.INDIRECTORY,
+                message = message,
+                output = output,
+                waitingOnCommand = waitingOnCommand,
+                shouldClose = shouldClose,
+                currentFolder = BuildListing(currentFolderloaded)
+            };
+        }
+
+        private static void SendCommandResponse(TcpClient client, string message, string? output = null, bool shouldClose = false)
+        {
+            SendResponse(client, BuildResponse(message, output, true, shouldClose));
+        }
+
         public static class FileMethods
         {
-            public static void ReadFile(IFile file)
+            public static void ReadFile(IFile file, TcpClient client)
             {
                 var fullPath = Path.Combine(currentFolderloaded.pathToFolder, file.ReturnFileName());
                 string fileContents = File.ReadAllText(fullPath);
 
-                Console.WriteLine("File Contents:");
-                Console.WriteLine(fileContents);
-                return;
+                SendCommandResponse(client, $"Read {file.ReturnFileName()}.", fileContents);
             }
-            public static void AppendFile(Folder baseFolder, IFile file)
+
+            public static void AppendFile(Folder baseFolder, IFile file, TcpClient client)
             {
                 string path = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
 
                 if (File.Exists(path))
                 {
-                    Console.WriteLine($"Please Enter Text you would like to append to {file.ReturnFileName()}: ");
-                    string? input = Console.ReadLine();
-
+                    string? input = PromptClientForInput(client, $"Please Enter Text you would like to append to {file.ReturnFileName()}: ");
                     File.AppendAllText(path, input ?? string.Empty);
-                }
-            }
-            public static void OverwriteFile(Folder baseFolder, IFile file)
-            {
-                string path = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
-
-                if (File.Exists(path))
-                {
-                    Console.WriteLine($"Please Enter Text to Overwrite File {file.ReturnFileName()}: ");
-                    string? input = Console.ReadLine();
-
-                    File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
-                }
-            }
-            public static void CreateFile(Folder baseFolder, string name)
-            {
-                string path = Path.Combine(baseFolder.pathToFolder, !string.IsNullOrEmpty(name) ? name : $"newfile{baseFolder.subFiles.Count() + 1}");
-
-                if (File.Exists(path))
-                {
-                    Console.WriteLine($"File Already Exists in this Location!");
+                    SendCommandResponse(client, $"Appended text to {file.ReturnFileName()}.");
                 }
                 else
                 {
-                    Console.WriteLine("Enter New File Text Input: ");
-                    string? input = Console.ReadLine();
-
-                    File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
+                    SendCommandResponse(client, "File could not be found.");
                 }
             }
 
-            public static void MoveFile(Folder baseFolder, IFile file, Folder folderToMoveTo)
+            public static void OverwriteFile(Folder baseFolder, IFile file, TcpClient client)
+            {
+                string path = Path.Combine(baseFolder.pathToFolder, file.ReturnFileName());
+
+                if (File.Exists(path))
+                {
+                    string? input = PromptClientForInput(client, $"Please Enter Text to Overwrite File {file.ReturnFileName()}: ");
+                    File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
+                    SendCommandResponse(client, $"Overwrote {file.ReturnFileName()}.");
+                }
+                else
+                {
+                    SendCommandResponse(client, "File could not be found.");
+                }
+            }
+
+            public static void CreateFile(Folder baseFolder, string name, TcpClient client)
+            {
+                string fileName = !string.IsNullOrEmpty(name) ? name : $"newfile{baseFolder.subFiles.Count() + 1}";
+                string path = Path.Combine(baseFolder.pathToFolder, fileName);
+
+                if (File.Exists(path))
+                {
+                    SendCommandResponse(client, "File Already Exists in this Location!");
+                }
+                else
+                {
+                    string? input = PromptClientForInput(client, "Enter New File Text Input: ");
+                    File.WriteAllText(path, string.IsNullOrEmpty(input) ? "" : input + Environment.NewLine);
+                    SendCommandResponse(client, $"Created file {fileName}.");
+                }
+            }
+
+            public static void MoveFile(Folder baseFolder, IFile? file, Folder? folderToMoveTo, TcpClient client)
             {
                 if (file == null || folderToMoveTo == null)
                 {
-                    Console.WriteLine("Please select a valid file and destination folder.");
+                    SendCommandResponse(client, "Please select a valid file and destination folder.");
                     return;
                 }
 
@@ -406,44 +446,60 @@ namespace FileSystem
                 if (Directory.Exists(folderToMoveTo.pathToFolder))
                 {
                     File.Move(filePath, folderPath);
+                    SendCommandResponse(client, $"Moved file {file.ReturnFileName()} to {folderToMoveTo.folderName}.");
                 }
                 else
                 {
-                    Console.WriteLine("Please select a valid destination folder.");
+                    SendCommandResponse(client, "Please select a valid destination folder.");
                 }
             }
-            public static void DeleteFile(Folder baseFolder, IFile fileToDelete)
+
+            public static void DeleteFile(Folder baseFolder, IFile fileToDelete, TcpClient client)
             {
                 string path = Path.Combine(baseFolder.pathToFolder, fileToDelete.ReturnFileName());
 
                 if (File.Exists(path))
                 {
-                    Console.WriteLine($"Are you sure you want to delete {fileToDelete.ReturnFileName()}?\nYES or NO");
-                    string? input = Console.ReadLine();
+                    string? input = PromptClientForInput(client, $"Are you sure you want to delete {fileToDelete.ReturnFileName()}?\nYES or NO");
 
                     if (!string.IsNullOrEmpty(input) && input.ToUpper() == "YES")
                     {
                         File.Delete(path);
+                        SendCommandResponse(client, $"Deleted file {fileToDelete.ReturnFileName()}.");
                     }
+                    else
+                    {
+                        SendCommandResponse(client, $"Did not delete {fileToDelete.ReturnFileName()}.");
+                    }
+                }
+                else
+                {
+                    SendCommandResponse(client, "File could not be found.");
                 }
             }
         }
 
         public static class FolderMethods
         {
-            public static void EnterFolder(Folder folderToEnter)
+            public static void EnterFolder(Folder folderToEnter, TcpClient client)
             {
                 var path = folderToEnter.pathToFolder;
                 if (Directory.Exists(path))
                 {
                     currentFolderloaded = InitializeFolder(folderToEnter.parentFolder, folderToEnter.pathToFolder, folderToEnter.folderName);
+                    SendCommandResponse(client, $"Entered folder {folderToEnter.folderName}.");
                 }
-
+                else
+                {
+                    SendCommandResponse(client, "Could not find Folder to Enter!");
+                }
             }
-            public static void ExitFolder(Folder baseFolder)
+
+            public static void ExitFolder(Folder baseFolder, TcpClient client)
             {
                 if (baseFolder.parentFolder == null)
                 {
+                    SendCommandResponse(client, "Already at the root folder.");
                     return;
                 }
 
@@ -452,41 +508,59 @@ namespace FileSystem
                 if (Directory.Exists(path))
                 {
                     currentFolderloaded = InitializeFolder(baseFolder.parentFolder.parentFolder, baseFolder.parentFolder.pathToFolder, baseFolder.parentFolder.folderName);
+                    SendCommandResponse(client, $"Exited to folder {baseFolder.parentFolder.folderName}.");
+                }
+                else
+                {
+                    SendCommandResponse(client, "Could not exit to parent folder.");
                 }
             }
-            public static void DeleteFolder(Folder folderToDelete)
+
+            public static void DeleteFolder(Folder folderToDelete, TcpClient client)
             {
                 string path = folderToDelete.pathToFolder;
 
                 if (Directory.Exists(path))
                 {
-                    Console.WriteLine($"Are you sure you want to delete {folderToDelete.folderName}? This includes all files in the folder!!\nYES or NO");
-                    string? input = Console.ReadLine();
+                    string? input = PromptClientForInput(client, $"Are you sure you want to delete {folderToDelete.folderName}? This includes all files in the folder!!\nYES or NO");
 
                     if (!string.IsNullOrEmpty(input) && input.ToUpper() == "YES")
                     {
                         Directory.Delete(path, true);
+                        SendCommandResponse(client, $"Deleted folder {folderToDelete.folderName}.");
+                    }
+                    else
+                    {
+                        SendCommandResponse(client, $"Did not delete {folderToDelete.folderName}.");
                     }
                 }
+                else
+                {
+                    SendCommandResponse(client, "Folder could not be found.");
+                }
             }
-            public static void CreateFolder(Folder baseFolder, string nameOfFolder)
+
+            public static void CreateFolder(Folder baseFolder, string nameOfFolder, TcpClient client)
             {
-                string path = Path.Combine(baseFolder.pathToFolder, !string.IsNullOrEmpty(nameOfFolder) ? nameOfFolder : $"newfile{baseFolder.subFiles.Count() + 1}");
+                string folderName = !string.IsNullOrEmpty(nameOfFolder) ? nameOfFolder : $"newfile{baseFolder.subFiles.Count() + 1}";
+                string path = Path.Combine(baseFolder.pathToFolder, folderName);
 
                 if (Directory.Exists(path))
                 {
-                    Console.WriteLine($"Folder Already Exists in this Folder!");
+                    SendCommandResponse(client, "Folder Already Exists in this Folder!");
                 }
                 else
                 {
                     Directory.CreateDirectory(path);
+                    SendCommandResponse(client, $"Created folder {folderName}.");
                 }
             }
-            public static void MoveFolder(Folder folderBeingMoved, Folder folderToMoveTo)
+
+            public static void MoveFolder(Folder? folderBeingMoved, Folder? folderToMoveTo, TcpClient client)
             {
                 if (folderBeingMoved == null || folderToMoveTo == null)
                 {
-                    Console.WriteLine("Please select a valid folder and destination folder.");
+                    SendCommandResponse(client, "Please select a valid folder and destination folder.");
                     return;
                 }
 
@@ -496,10 +570,11 @@ namespace FileSystem
                 if (Directory.Exists(folderToMoveTo.pathToFolder))
                 {
                     Directory.Move(filePath, folderPath);
+                    SendCommandResponse(client, $"Moved folder {folderBeingMoved.folderName} to {folderToMoveTo.folderName}.");
                 }
                 else
                 {
-                    Console.WriteLine("Please select a valid destination folder.");
+                    SendCommandResponse(client, "Please select a valid destination folder.");
                 }
             }
         }
