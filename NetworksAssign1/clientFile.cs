@@ -7,7 +7,9 @@ class Program
 {
     static async Task Main()
     {
-        string serverIp = "192.168.1.136";
+        Console.WriteLine("Enter an IP (or nothing for default): ");
+        string? ipRead = Console.ReadLine();
+        string serverIp = string.IsNullOrEmpty(ipRead) ? "192.168.1.136" : ipRead;
         int port = 8080;
 
         try
