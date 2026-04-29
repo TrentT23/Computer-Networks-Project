@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="serverFile.cs" />
     <Compile Include="fileSystem.cs" />
   </ItemGroup>
 
