@@ -70,7 +70,7 @@ namespace FileSystem
                     return false;
                 }
 
-                int arg1 = -1; 
+                int arg1 = -1;
                 if (parts.Length > 1)
                 {
                     int.TryParse(parts[1], out arg1); // If the second part is an int, then the user is passing an index value
@@ -129,60 +129,60 @@ namespace FileSystem
                     switch (sharedOp)
                     {
                         case SharedOperations.CREATE:
-                        {
-                            if (parts.Length < 2)
                             {
-                                SendCommandResponse(client, "Please specify FILE or FOLDER.");
+                                if (parts.Length < 2)
+                                {
+                                    SendCommandResponse(client, "Please specify FILE or FOLDER.");
+                                    break;
+                                }
+
+                                string sarg1 = parts[1];
+                                string sarg2 = ExtractCreateName(fullCommand, sarg1); // Get the name of the file to make
+                                if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType)) // Determine if its a file or folder
+                                {
+                                    sarg2 = !string.IsNullOrEmpty(sarg2) ? sarg2 : string.Empty;
+
+                                    if (nType == DirectoryType.FILE)
+                                    {
+                                        FileMethods.CreateFile(this, currentFolderloaded, sarg2, client); // Create a File
+                                    }
+                                    else if (nType == DirectoryType.FOLDER)
+                                    {
+                                        FolderMethods.CreateFolder(this, currentFolderloaded, sarg2, client); // Create a Folder
+                                    }
+                                }
+                                else
+                                {
+                                    SendCommandResponse(client, "Please specify FILE or FOLDER.");
+                                }
                                 break;
                             }
-
-                            string sarg1 = parts[1];
-                            string sarg2 = ExtractCreateName(fullCommand, sarg1); // Get the name of the file to make
-                            if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType)) // Determine if its a file or folder
-                            {
-                                sarg2 = !string.IsNullOrEmpty(sarg2) ? sarg2 : string.Empty;
-
-                                if (nType == DirectoryType.FILE)
-                                {
-                                    FileMethods.CreateFile(this, currentFolderloaded, sarg2, client); // Create a File
-                                }
-                                else if (nType == DirectoryType.FOLDER)
-                                {
-                                    FolderMethods.CreateFolder(this, currentFolderloaded, sarg2, client); // Create a Folder
-                                }
-                            }
-                            else
-                            {
-                                SendCommandResponse(client, "Please specify FILE or FOLDER.");
-                            }
-                            break;
-                        }
                         case SharedOperations.DELETE: // Delete Operation
-                        {
-                            if (arg1 != -1)
                             {
-                                var subFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
-                                var subFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
+                                if (arg1 != -1)
+                                {
+                                    var subFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
+                                    var subFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
 
-                                if (subFile != null)
-                                {
-                                    FileMethods.DeleteFile(this, currentFolderloaded, subFile, client);
-                                }
-                                else if (subFolder != null)
-                                {
-                                    FolderMethods.DeleteFolder(this, subFolder, client);
+                                    if (subFile != null)
+                                    {
+                                        FileMethods.DeleteFile(this, currentFolderloaded, subFile, client);
+                                    }
+                                    else if (subFolder != null)
+                                    {
+                                        FolderMethods.DeleteFolder(this, subFolder, client);
+                                    }
+                                    else
+                                    {
+                                        SendCommandResponse(client, "Please select a valid file or folder.");
+                                    }
                                 }
                                 else
                                 {
                                     SendCommandResponse(client, "Please select a valid file or folder.");
                                 }
+                                break;
                             }
-                            else
-                            {
-                                SendCommandResponse(client, "Please select a valid file or folder.");
-                            }
-                            break;
-                        }
                         case SharedOperations.QUIT: // Quit Program
                             SendCommandResponse(client, "Closing session.", shouldClose: true);
                             return true;
@@ -192,39 +192,39 @@ namespace FileSystem
                             break;
 
                         case SharedOperations.MOVE: // Move a File or Folder
-                        {
-                            if (parts.Length < 4) // Not enough arguments to perform operation
                             {
-                                SendCommandResponse(client, "Use MOVE FILE <item> <folder> or MOVE FOLDER <item> <folder>.");
+                                if (parts.Length < 4) // Not enough arguments to perform operation
+                                {
+                                    SendCommandResponse(client, "Use MOVE FILE <item> <folder> or MOVE FOLDER <item> <folder>.");
+                                    break;
+                                }
+
+                                string sarg1 = parts[1];
+
+                                if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
+                                {
+                                    int arg2 = int.TryParse(parts[2], out int temp1) ? temp1 : -1;
+                                    int arg3 = int.TryParse(parts[3], out int temp2) ? temp2 : -1;
+
+                                    if (nType == DirectoryType.FILE) // Moving a File type
+                                    {
+                                        var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2); // Find File
+                                        var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3); // Find Directory to Move File to
+                                        FileMethods.MoveFile(this, currentFolderloaded, findFile, folderToPut, client);
+                                    }
+                                    else if (nType == DirectoryType.FOLDER) // Moving a Folder Type
+                                    {
+                                        var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2); // Find Folder
+                                        var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3); // Find Directory to Move Folder to
+                                        FolderMethods.MoveFolder(this, findFolder, folderToPut, client);
+                                    }
+                                }
+                                else
+                                {
+                                    SendCommandResponse(client, "Please specify FILE or FOLDER.");
+                                }
                                 break;
                             }
-
-                            string sarg1 = parts[1];
-
-                            if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
-                            {
-                                int arg2 = int.TryParse(parts[2], out int temp1) ? temp1 : -1;
-                                int arg3 = int.TryParse(parts[3], out int temp2) ? temp2 : -1;
-
-                                if (nType == DirectoryType.FILE) // Moving a File type
-                                {
-                                    var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2); // Find File
-                                    var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3); // Find Directory to Move File to
-                                    FileMethods.MoveFile(this, currentFolderloaded, findFile, folderToPut, client);
-                                }
-                                else if (nType == DirectoryType.FOLDER) // Moving a Folder Type
-                                {
-                                    var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2); // Find Folder
-                                    var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3); // Find Directory to Move Folder to
-                                    FolderMethods.MoveFolder(this, findFolder, folderToPut, client);
-                                }
-                            }
-                            else
-                            {
-                                SendCommandResponse(client, "Please specify FILE or FOLDER.");
-                            }
-                            break;
-                        }
                     }
                 }
                 else
@@ -281,7 +281,7 @@ namespace FileSystem
 
             baseFolder.subFolders = allFolders;
             baseFolder.subFiles = allFiles;
-            return baseFolder; 
+            return baseFolder;
         }
 
         // Used to get the specific name for a File or Folder when using the Create Command
@@ -322,27 +322,27 @@ namespace FileSystem
         */
         public static string? ReadClientLine(TcpClient client)
         {
-            NetworkStream stream = client.GetStream(); // Blocks the thread
+            NetworkStream stream = client.GetStream();
             List<byte> data = new List<byte>();
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[1];
 
-            while (true) // Each iteration processes 1 byte at a time. Since We are sending small messages this is no problem, and allows to easily
-            // check for newline. 
+            while (true)
             {
-                int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                if (bytesRead <= 0) // No Bytes recieved, terminate
+                int bytesRead = stream.Read(buffer, 0, 1);
+                if (bytesRead <= 0)
                 {
                     return data.Count == 0 ? null : Encoding.UTF8.GetString(data.ToArray()).TrimEnd('\r');
                 }
 
-                if (buffer[0] == (byte)'\n')  // Newline was read, terminate
+                if (buffer[0] == (byte)'\n')
                 {
-                    return Encoding.UTF8.GetString(data.ToArray()).TrimEnd('\r'); // Read bytes as a string
+                    return Encoding.UTF8.GetString(data.ToArray()).TrimEnd('\r');
                 }
 
-                data.Add(buffer[0]); // Add each byte to the data byte list
+                data.Add(buffer[0]);
             }
         }
+
 
 
         // Creates a DirectoryListing (small folder) just meant for the Client Reading
@@ -513,7 +513,7 @@ namespace FileSystem
         /*
             Hold all of the methods for FolderOperations!
         */
-        public static class FolderMethods 
+        public static class FolderMethods
         {
             public static void EnterFolder(DirectoryRoot root, Folder folderToEnter, TcpClient client)
             {
