@@ -3,6 +3,9 @@
 # CSC 474
 # Dr. Jun Huang
 
+# FILE DIRECTORY
+All of the files are in the 'NetworksAssign1 Directory!
+
 This ReadMe contains the base operations needed to run both the CLIENT and the SERVER FILES, along with a description of the project. 
 There are many files in this project, but the ones of interest are: 
 
