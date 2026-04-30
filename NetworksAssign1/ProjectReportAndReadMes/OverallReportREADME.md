@@ -37,6 +37,8 @@ After building the server, you can run it with:
 - dotnet run --project .\NetworksAssign1.csproj
 
 The server will start by default on Port 8080. Any user that has the clientFile executable and is able to reach your computer via an IP can connect.
+If you run this one yoour computer, it will create a new 'ServerFiles' directory in your bin folder. This is where your clients files will be stored. 
+Any time after a client connects it will use the same 'ServerFiles' folder. 
 
 # RUN CLIENT: 
 
