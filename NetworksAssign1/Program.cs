@@ -6,7 +6,7 @@ using SharedModels;
 /*
 
 Trent Tiegs 
-CSC 467 -- Computer Networks 
+CSC 474 -- Computer Networks 
 Dr. Huang
 - This file controls the SERVER of the File System! Initializes a server, and accepts client connections.
 - Each Client is given their own thread, and DirectoryRoot Object so multiple users are handled at once

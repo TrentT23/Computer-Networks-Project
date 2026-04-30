@@ -1,7 +1,13 @@
 namespace SharedModels;
 using System.IO;
 using System;
+/*
+Trent Tiegs 
+CSC 474 -- Computer Networks 
+Dr. Huang
+- Holds models both the server and client files
 
+*/
 // --------- ENUMS -----------//
 public enum SessionStatus
 {

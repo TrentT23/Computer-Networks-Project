@@ -4,7 +4,14 @@ using SharedModels;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+/*
+Trent Tiegs 
+CSC 474 -- Computer Networks 
+Dr. Huang
+- This file holds all the file operations used by the server
 
+Dependancies: Models.cs
+*/
 namespace FileSystem
 {
     // Directory Root controls the processing of client commands and executes the actions!

@@ -2,7 +2,13 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using SharedModels;
-
+/*
+Trent Tiegs 
+CSC 474 -- Computer Networks 
+Dr. Huang
+- This file controls the CLIENT connection to the server
+Dependancies: SharedModels.cs
+*/
 class Program
 {
     static async Task Main()
