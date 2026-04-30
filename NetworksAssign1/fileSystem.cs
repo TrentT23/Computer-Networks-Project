@@ -7,8 +7,11 @@ using System.Text.Json;
 
 namespace FileSystem
 {
+    // Directory Root controls the processing of client commands and executes the actions!
     public class DirectoryRoot
     {
+
+        // -- ENUMS are used to better organize commands and operations instead of just plain integers -- //
         public enum FileOperations
         {
             READ,
@@ -35,23 +38,26 @@ namespace FileSystem
             FOLDER
         }
 
-        private Folder currentFolderloaded = new Folder();
+        private Folder currentFolderloaded = new Folder(); // IMPORTANT! -- EACH client has their own instance of currentFolderLoaded since they each
+        // ...have their own DirectoryRoot
 
         public Folder CurrentFolder => currentFolderloaded;
 
         public static class FileSystemConfig
         {
-            public static string Root = Path.Combine(AppContext.BaseDirectory, "ServerFiles");
+            public static string Root = Path.Combine(AppContext.BaseDirectory, "ServerFiles"); // When server starts, if a 'ServerFiles' folder doesn't....
+            // exist, then one is created. This is in the bin folder. Everything the clients do is in this file
         }
 
+        // Takes the username from the client and creates their own root directory for the server. 
         public void InitializeUserName(string username)
         {
             string rootPath = Path.Combine(FileSystemConfig.Root, username);
             Directory.CreateDirectory(rootPath);
-            currentFolderloaded = InitializeFolder(null, rootPath, username);
+            currentFolderloaded = InitializeFolder(null, rootPath, username); // The parent file is marked as null so they cannot go backwards
         }
-
-        // CODEx change: kept your original bool-returning flow, but responses now go back to the client.
+        // --------------------------------PARSE COMMAND HELPER METHOD --------------------------------------//
+        // Parse Command will take the full Command, Parse it into multiple arguments, process each one, perform the operations specified, and send response back to client.
         public bool ParseCommand(string fullCommand, TcpClient client)
         {
             try
@@ -64,15 +70,15 @@ namespace FileSystem
                     return false;
                 }
 
-                int arg1 = -1;
+                int arg1 = -1; 
                 if (parts.Length > 1)
                 {
-                    int.TryParse(parts[1], out arg1);
+                    int.TryParse(parts[1], out arg1); // If the second part is an int, then the user is passing an index value
                 }
 
-                if (Enum.TryParse<FileOperations>(parts[0].ToUpper(), out FileOperations fileOp))
+                if (Enum.TryParse<FileOperations>(parts[0].ToUpper(), out FileOperations fileOp)) // If fileOp is intialized, then the command is a FILE command and is in this block
                 {
-                    var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1);
+                    var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg1); // Attempt to grab a file with arg1 if successfully intialized
 
                     if (findFile == null)
                     {
@@ -80,24 +86,24 @@ namespace FileSystem
                         return false;
                     }
 
-                    switch (fileOp)
+                    switch (fileOp) // These commands only have 2 arguments, the command and the index
                     {
                         case FileOperations.READ:
-                            FileMethods.ReadFile(this, findFile, client);
+                            FileMethods.ReadFile(this, findFile, client); // Print the Contents of a file
                             break;
                         case FileOperations.APPEND:
-                            FileMethods.AppendFile(this, currentFolderloaded, findFile, client);
+                            FileMethods.AppendFile(this, currentFolderloaded, findFile, client); // Add onto the Contents of a file
                             break;
-                        case FileOperations.OVERWRITE:
+                        case FileOperations.OVERWRITE: // Overwrite the Contents of a file
                             FileMethods.OverwriteFile(this, currentFolderloaded, findFile, client);
                             break;
                     }
 
                     return false;
                 }
-                else if (Enum.TryParse<FolderOperations>(parts[0].ToUpper(), out FolderOperations folderOp))
+                else if (Enum.TryParse<FolderOperations>(parts[0].ToUpper(), out FolderOperations folderOp)) // If folderOp is intialized, then the command is a folder command and is in this block
                 {
-                    switch (folderOp)
+                    switch (folderOp) // These commands only have 2 arguments, the command and the index
                     {
                         case FolderOperations.ENTER:
                             var folder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg1);
@@ -117,7 +123,8 @@ namespace FileSystem
 
                     return false;
                 }
-                else if (Enum.TryParse<SharedOperations>(parts[0].ToUpper(), out SharedOperations sharedOp))
+                else if (Enum.TryParse<SharedOperations>(parts[0].ToUpper(), out SharedOperations sharedOp)) // A sharedOp can be a Fileop or FolderOp. In this case, we treat Arg1 as a string and see 
+                // ... if it's type File or Folder!
                 {
                     switch (sharedOp)
                     {
@@ -130,18 +137,18 @@ namespace FileSystem
                             }
 
                             string sarg1 = parts[1];
-                            string sarg2 = ExtractCreateName(fullCommand, sarg1);
-                            if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType))
+                            string sarg2 = ExtractCreateName(fullCommand, sarg1); // Get the name of the file to make
+                            if (Enum.TryParse<DirectoryType>(sarg1.ToUpper(), out DirectoryType nType)) // Determine if its a file or folder
                             {
                                 sarg2 = !string.IsNullOrEmpty(sarg2) ? sarg2 : string.Empty;
 
                                 if (nType == DirectoryType.FILE)
                                 {
-                                    FileMethods.CreateFile(this, currentFolderloaded, sarg2, client);
+                                    FileMethods.CreateFile(this, currentFolderloaded, sarg2, client); // Create a File
                                 }
                                 else if (nType == DirectoryType.FOLDER)
                                 {
-                                    FolderMethods.CreateFolder(this, currentFolderloaded, sarg2, client);
+                                    FolderMethods.CreateFolder(this, currentFolderloaded, sarg2, client); // Create a Folder
                                 }
                             }
                             else
@@ -150,7 +157,7 @@ namespace FileSystem
                             }
                             break;
                         }
-                        case SharedOperations.DELETE:
+                        case SharedOperations.DELETE: // Delete Operation
                         {
                             if (arg1 != -1)
                             {
@@ -176,17 +183,17 @@ namespace FileSystem
                             }
                             break;
                         }
-                        case SharedOperations.QUIT:
+                        case SharedOperations.QUIT: // Quit Program
                             SendCommandResponse(client, "Closing session.", shouldClose: true);
                             return true;
 
-                        case SharedOperations.HELP:
+                        case SharedOperations.HELP: // Return a List of Commands
                             SendCommandResponse(client, "Command list:", MethodsToShare.GetCommandsText());
                             break;
 
-                        case SharedOperations.MOVE:
+                        case SharedOperations.MOVE: // Move a File or Folder
                         {
-                            if (parts.Length < 4)
+                            if (parts.Length < 4) // Not enough arguments to perform operation
                             {
                                 SendCommandResponse(client, "Use MOVE FILE <item> <folder> or MOVE FOLDER <item> <folder>.");
                                 break;
@@ -199,16 +206,16 @@ namespace FileSystem
                                 int arg2 = int.TryParse(parts[2], out int temp1) ? temp1 : -1;
                                 int arg3 = int.TryParse(parts[3], out int temp2) ? temp2 : -1;
 
-                                if (nType == DirectoryType.FILE)
+                                if (nType == DirectoryType.FILE) // Moving a File type
                                 {
-                                    var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2);
-                                    var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
+                                    var findFile = currentFolderloaded.subFiles.FirstOrDefault(x => x.ReturnPlaceInParent() == arg2); // Find File
+                                    var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3); // Find Directory to Move File to
                                     FileMethods.MoveFile(this, currentFolderloaded, findFile, folderToPut, client);
                                 }
-                                else if (nType == DirectoryType.FOLDER)
+                                else if (nType == DirectoryType.FOLDER) // Moving a Folder Type
                                 {
-                                    var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2);
-                                    var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3);
+                                    var findFolder = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg2); // Find Folder
+                                    var folderToPut = currentFolderloaded.subFolders.FirstOrDefault(x => x.placeInParentFolder == arg3); // Find Directory to Move Folder to
                                     FolderMethods.MoveFolder(this, findFolder, folderToPut, client);
                                 }
                             }
@@ -234,10 +241,12 @@ namespace FileSystem
             }
         }
 
+        // This helper method is used to set up and refresh folder objects for the rest of the program
+        // This will look in the server computer for the files in the file path, and take all that information to create the Folder Objects
         public static Folder InitializeFolder(Folder? parent, string pathToFolder, string baseName)
         {
             Folder baseFolder = new Folder() { parentFolder = parent, folderName = baseName, pathToFolder = pathToFolder };
-            string root = pathToFolder;
+            string root = pathToFolder; // specifies the root path of a folder
 
             var rootFiles = new List<string>();
             var rootFolders = new List<string>();
@@ -245,11 +254,11 @@ namespace FileSystem
             List<Folder> allFolders = new List<Folder>();
             List<IFile> allFiles = new List<IFile>();
 
-            rootFiles.AddRange(Directory.GetFiles(root));
-            rootFolders.AddRange(Directory.GetDirectories(root));
+            rootFiles.AddRange(Directory.GetFiles(root));  // Get all Files in path, if they exist
+            rootFolders.AddRange(Directory.GetDirectories(root)); // Get all Folders in path, if they exist
 
             int refCount = 0;
-            for (int i = 0; i < rootFolders.Count(); i++)
+            for (int i = 0; i < rootFolders.Count(); i++) // For every Folder, get the name, list the path, list their index in their parent directory
             {
                 allFolders.Add(new Folder()
                 {
@@ -260,7 +269,7 @@ namespace FileSystem
                 });
                 refCount++;
             }
-            for (int i = 0; i < rootFiles.Count(); i++)
+            for (int i = 0; i < rootFiles.Count(); i++) // Similar to Folders, store their name, and track their index in parent folder
             {
                 allFiles.Add(new TextFile()
                 {
@@ -272,9 +281,10 @@ namespace FileSystem
 
             baseFolder.subFolders = allFolders;
             baseFolder.subFiles = allFiles;
-            return baseFolder;
+            return baseFolder; 
         }
 
+        // Used to get the specific name for a File or Folder when using the Create Command
         private static string ExtractCreateName(string fullCommand, string directoryType)
         {
             string prefix = $"CREATE {directoryType}";
@@ -283,21 +293,22 @@ namespace FileSystem
                 return string.Empty;
             }
 
-            string remainder = fullCommand.Substring(prefix.Length).Trim();
-            return remainder.Trim().Trim('"');
+            string remainder = fullCommand.Substring(prefix.Length).Trim(); // Grab the name seperate from arg0 and arg1
+            return remainder.Trim().Trim('"'); // Trim white space
         }
 
+        // PromptClientForInput sends a message for the client, as well as folder information needed for them
         public string? PromptClientForInput(TcpClient client, string message)
         {
             SendResponse(client, BuildResponse(message, null, false, false));
             return ReadClientLine(client);
         }
 
-        public void SendServerMessage(TcpClient client, string message, bool waitingOnCommand)
-        {
-            SendResponse(client, BuildResponse(message, null, waitingOnCommand, false));
-        }
 
+        /*
+        Send Response is a helper method that will break a ServerResponse object into bytes to send BACK to the client, so the client can get responses. 
+        The Client will Serialize and Process this object!
+        */
         public static void SendResponse(TcpClient client, ServerStatusResponse response)
         {
             string json = JsonSerializer.Serialize(response) + Environment.NewLine;
@@ -306,29 +317,35 @@ namespace FileSystem
             stream.Write(responseBytes, 0, responseBytes.Length);
         }
 
+        /*
+            ReadClient Line is a helper method that will block and wait for a client response. Could be for commands or entering a username
+        */
         public static string? ReadClientLine(TcpClient client)
         {
-            NetworkStream stream = client.GetStream();
+            NetworkStream stream = client.GetStream(); // Blocks the thread
             List<byte> data = new List<byte>();
-            byte[] buffer = new byte[1];
+            byte[] buffer = new byte[1024];
 
-            while (true)
+            while (true) // Each iteration processes 1 byte at a time. Since We are sending small messages this is no problem, and allows to easily
+            // check for newline. 
             {
-                int bytesRead = stream.Read(buffer, 0, 1);
-                if (bytesRead <= 0)
+                int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                if (bytesRead <= 0) // No Bytes recieved, terminate
                 {
                     return data.Count == 0 ? null : Encoding.UTF8.GetString(data.ToArray()).TrimEnd('\r');
                 }
 
-                if (buffer[0] == (byte)'\n')
+                if (buffer[0] == (byte)'\n')  // Newline was read, terminate
                 {
-                    return Encoding.UTF8.GetString(data.ToArray()).TrimEnd('\r');
+                    return Encoding.UTF8.GetString(data.ToArray()).TrimEnd('\r'); // Read bytes as a string
                 }
 
-                data.Add(buffer[0]);
+                data.Add(buffer[0]); // Add each byte to the data byte list
             }
         }
 
+
+        // Creates a DirectoryListing (small folder) just meant for the Client Reading
         public static DirectoryListing BuildListing(Folder folder)
         {
             return new DirectoryListing()
@@ -340,22 +357,26 @@ namespace FileSystem
             };
         }
 
+
         private void RefreshCurrentFolder()
         {
             if (string.IsNullOrWhiteSpace(currentFolderloaded.pathToFolder) || !Directory.Exists(currentFolderloaded.pathToFolder))
             {
                 return;
             }
-
+            // Purposely will update the currentFolderLoaded with itself to update for any file changes
             currentFolderloaded = InitializeFolder(
                 currentFolderloaded.parentFolder,
                 currentFolderloaded.pathToFolder,
                 currentFolderloaded.folderName);
         }
 
+        /*
+        Build Reponse uses the ServerStatusResponse class to store all necessary information for the client!
+        */
         private ServerStatusResponse BuildResponse(string message, string? output, bool waitingOnCommand, bool shouldClose)
         {
-            RefreshCurrentFolder();
+            RefreshCurrentFolder(); // Ensures the Folder is up-to-date with any changes just performed before
 
             return new ServerStatusResponse()
             {
@@ -368,11 +389,21 @@ namespace FileSystem
             };
         }
 
+        // Sends a Response Back to the client. 
         private void SendCommandResponse(TcpClient client, string message, string? output = null, bool shouldClose = false)
         {
             SendResponse(client, BuildResponse(message, output, true, shouldClose));
         }
 
+
+        // ------------------------- STATIC CLASSES CONTAINING FILE AND FOLDER OPERATION METHODS ---------------------------------- //
+        // For all of these operations, they have a similar structure. Read command input, perform the operation, send back output, and return to the Main Loop. 
+        // Some operations require more user input, for these the client is asked for more information (usually for creating or writing to files/folders).
+
+
+        /*
+            FileMethods Hold all of the methods used for File Operations. 
+        */
         public static class FileMethods
         {
             public static void ReadFile(DirectoryRoot root, IFile file, TcpClient client)
@@ -479,7 +510,10 @@ namespace FileSystem
             }
         }
 
-        public static class FolderMethods
+        /*
+            Hold all of the methods for FolderOperations!
+        */
+        public static class FolderMethods 
         {
             public static void EnterFolder(DirectoryRoot root, Folder folderToEnter, TcpClient client)
             {
