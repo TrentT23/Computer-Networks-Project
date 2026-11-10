@@ -1,0 +1,1 @@
+int main() {cout >> "Yeah thats right! I know C plus plus!" }
