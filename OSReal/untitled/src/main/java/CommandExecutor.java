@@ -21,6 +21,7 @@ public class CommandExecutor {
         errorTracker = new ArrayList<>();
         result = new CommandResult();
 
+        try {
         switch (fullCommand.type) {
             case CommandType.PWD:
                 pwd();
@@ -59,6 +60,16 @@ public class CommandExecutor {
                 errorTracker.add("Command not Recognized");
                 result = new CommandResult(relativizeAPath(fsc.currentPath).toString(), errorTracker);
                 break;
+        }
+        } catch (IOException e) {
+            // CODEX: Convert uncaught file-operation I/O failures into the normal result so one failed command does not stop the command loop.
+            errorTracker.add(ioErrorMessage("execute " + fullCommand.type, e));
+            result = new CommandResult("~%s".formatted(relativizeAPath(fsc.currentPath)), errorTracker);
+        }
+
+        // CODEX: Ensure early-return command paths still return the current location and the active error tracker.
+        if (!result.isQuit && result.newPathtoPrint == null) {
+            result = new CommandResult("~%s".formatted(relativizeAPath(fsc.currentPath)), errorTracker);
         }
 
         return result;
@@ -184,7 +195,8 @@ public class CommandExecutor {
         }
         catch (IOException e)
         {
-            errorTracker.add("Failed to list sub-files and sub-folders of directory");
+            // CODEX: Preserve the underlying I/O reason in the result for actionable directory-listing failures.
+            errorTracker.add(ioErrorMessage("list directory " + folderToSearch, e));
         }
         Path relativized = relativizeAPath(fsc.currentPath);
         result = new CommandResult("~%s".formatted(relativized.toString()), new InDirectory(filesList, foldersList),"", errorTracker );
@@ -285,7 +297,8 @@ public class CommandExecutor {
                                 Files.copy(path, targetPath.resolve(finalResolvedSource.getFileName()), StandardCopyOption.REPLACE_EXISTING);
                             }
                         } catch (IOException e) {
-                            errorTracker.add(e.getMessage());
+                            // CODEX: Add source and target context so a failed individual copy is reported through CommandResult.
+                            errorTracker.add(ioErrorMessage("copy " + path + " to " + finalResolvedDestination, e));
                         }
                     });
 
@@ -381,11 +394,13 @@ public class CommandExecutor {
                                     try {
                                         Files.delete(path);
                                     } catch (IOException e) {
-                                        System.out.printf("[SERVER ERROR] Failed to delete %s: %s%n", fsc.programPath.relativize(path), e.getMessage());
+                                        // CODEX: Report each failed recursive delete to the caller instead of only logging it on the server.
+                                        errorTracker.add(ioErrorMessage("delete " + path, e));
                                     }
                                 });
                     } catch (IOException e) {
-                        errorTracker.add("Failed to finish Recursive Folder Deletion due to I/O error");
+                        // CODEX: Include the failed recursive-delete path and I/O reason in the returned errors.
+                        errorTracker.add(ioErrorMessage("walk directory for recursive deletion " + resolvedPath, e));
                         return;
                     }
                 } else {
@@ -415,15 +430,21 @@ public class CommandExecutor {
                         return;
                     }
                 }
-                catch (Exception e)
+                catch (IOException e)
                 {
-                    errorTracker.add("Internal File I/O Error -- Failed to delete ");
+                    // CODEX: Catch only the declared file-listing I/O failure and retain its context in the result.
+                    errorTracker.add(ioErrorMessage("check directory before deletion " + resolvedPath, e));
                     return;
                 }
             }
 
             if (!fsc.currentPath.startsWith(resolvedPath) || (fsc.currentPath.startsWith(resolvedPath) && !Files.isDirectory(resolvedPath))) {
-                Files.deleteIfExists(resolvedPath);
+                try {
+                    Files.deleteIfExists(resolvedPath);
+                } catch (IOException e) {
+                    // CODEX: Return delete failures to the caller instead of allowing them to escape the command handler.
+                    errorTracker.add(ioErrorMessage("delete " + resolvedPath, e));
+                }
             }
             else
             {
@@ -459,5 +480,15 @@ public class CommandExecutor {
     static Path resolveAPathFromRoot(Path newAdditionFromRoot) // when moving to a new directory/file that specifies a whole path
     {
         return fsc.programPath.resolve(newAdditionFromRoot);
+    }
+
+    // CODEX: Normalize exception messages so the error tracker always contains a useful reason, even for exceptions without detail text.
+    static String ioErrorMessage(String operation, IOException error)
+    {
+        String reason = error.getMessage();
+        if (reason == null || reason.isBlank()) {
+            reason = error.getClass().getSimpleName();
+        }
+        return "I/O error while attempting to " + operation + ": " + reason;
     }
 }
