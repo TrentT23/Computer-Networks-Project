@@ -1,3 +1,5 @@
+package Handlers;
+
 import Models.PathType;
 
 import java.io.IOException;
@@ -13,16 +15,6 @@ public class FileSystemController {
     public Path currentPath;
 
     public Path resolvedRoot;
-
-    public static FileSystemController fsc; // Singleton for other classes
-
-    static {
-        try {
-            fsc = new FileSystemController();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     public FileSystemController() throws IOException {
         Path programPath = Path.of("").toAbsolutePath(); // Get the path of the program

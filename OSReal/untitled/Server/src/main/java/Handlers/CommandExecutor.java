@@ -1,3 +1,5 @@
+package Handlers;
+import SharedModels.*;
 import Models.*;
 import Enum.CommandType;
 
@@ -11,12 +13,18 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 public class CommandExecutor {
-    static FileSystemController fsc = FileSystemController.fsc;
-    public static ArrayList<String> errorTracker = new ArrayList<>();
-    public static CommandResult result = new CommandResult();
+    FileSystemController fsc = null;
+    public ArrayList<String> errorTracker = null;
+    public CommandResult result = null;
 
+    public CommandExecutor(FileSystemController clientFSC)
+    {
+        this.fsc = clientFSC;
+        this.errorTracker = new ArrayList<>();
+        this.result = new CommandResult();
+    }
 
-    public static CommandResult ProcessCommand(ParsedCommand fullCommand) throws IOException {
+    public CommandResult ProcessCommand(ParsedCommand fullCommand) throws IOException {
 
         errorTracker = new ArrayList<>();
         result = new CommandResult();
@@ -76,7 +84,7 @@ public class CommandExecutor {
     }
 
     // All Command Implementations --------------------------------------------------------------------------------------
-    static void pwd()
+     void pwd()
     {
         Path currentDir = fsc.currentPath;
 
@@ -84,7 +92,7 @@ public class CommandExecutor {
         result = new CommandResult("~%s".formatted(relativized.toString()), errorTracker );
     }
 
-    static void mkdir(ParsedCommand command) throws IOException {
+     void mkdir(ParsedCommand command) throws IOException {
         Path newFolderAddition = Path.of(command.listOfArgs[0]);
 
         Path resolvedPath = fsc.currentPath.resolve(newFolderAddition);
@@ -104,7 +112,7 @@ public class CommandExecutor {
 
     }
 
-    static void create(ParsedCommand command) throws IOException {
+     void create(ParsedCommand command) throws IOException {
         Path newFileAddition = Path.of(command.listOfArgs[0]);
 
         Path resolvedPath = fsc.currentPath.resolve(newFileAddition);
@@ -121,7 +129,7 @@ public class CommandExecutor {
         result = new CommandResult("~%s".formatted(relativized.toString()), errorTracker );
     }
 
-    static void write(ParsedCommand command) throws IOException {
+     void write(ParsedCommand command) throws IOException {
         Path newFileAddition = Path.of(command.listOfArgs[0]);
 
         Path resolvedPath = fsc.currentPath.resolve(newFileAddition);
@@ -138,7 +146,7 @@ public class CommandExecutor {
         result = new CommandResult("~%s".formatted(relativized.toString()),  errorTracker );
     }
 
-    static void read(ParsedCommand command) throws IOException {
+     void read(ParsedCommand command) throws IOException {
         Path newFileAddition = Path.of(command.listOfArgs[0]);
         String pathContents = "";
 
@@ -155,7 +163,7 @@ public class CommandExecutor {
         result = new CommandResult("~%s".formatted(relativized.toString()), pathContents, errorTracker );
     }
 
-    static void ls(ParsedCommand command) throws IOException {
+     void ls(ParsedCommand command) throws IOException {
 
         Path folderToSearch;
         if (command.listOfArgs.length > 0) {
@@ -202,7 +210,7 @@ public class CommandExecutor {
         result = new CommandResult("~%s".formatted(relativized.toString()), new InDirectory(filesList, foldersList),"", errorTracker );
     }
 
-    static void mv(ParsedCommand command) throws IOException {
+     void mv(ParsedCommand command) throws IOException {
         Path source = Path.of(command.listOfArgs[0]);
         Path destination = Path.of(command.listOfArgs[1]);
 
@@ -248,7 +256,7 @@ public class CommandExecutor {
         result = new CommandResult("~%s".formatted(relativized.toString()), errorTracker );
 
     }
-    static void cp(ParsedCommand command) throws IOException {
+     void cp(ParsedCommand command) throws IOException {
 
         Path source = Path.of(command.listOfArgs[0]);
         Path destination = Path.of(command.listOfArgs[1]);
@@ -310,7 +318,7 @@ public class CommandExecutor {
     }
 
 
-    static void cd(ParsedCommand command) throws IOException {
+     void cd(ParsedCommand command) throws IOException {
         String argument = command.listOfArgs[0];
 
         // First case, going to ParentFolder
@@ -377,7 +385,7 @@ public class CommandExecutor {
         }
     }
 
-    static void rm(ParsedCommand command) throws IOException {
+     void rm(ParsedCommand command) throws IOException {
 
         if (Objects.equals(command.listOfArgs[0], "-r")) // Special case, delete a folder/file even if stuff is in it
         {
@@ -458,7 +466,7 @@ public class CommandExecutor {
 
     // All Helper Methods  --------------------------------------------------------------------------------------
 
-    static boolean confirmValidPath(Path fullNewPath)
+     boolean confirmValidPath(Path fullNewPath)
     {
         if (fullNewPath.startsWith(fsc.rootPath))
         {
@@ -467,23 +475,23 @@ public class CommandExecutor {
         return false;
     }
 
-    static Path relativizeAPath(Path fullNewPath) // When resolving a Path used for printing the resolved result
+     Path relativizeAPath(Path fullNewPath) // When resolving a Path used for printing the resolved result
     {
         return fsc.programPath.relativize(fullNewPath);
     }
 
-    static Path resolveAPathFromCurrent(Path newAddition) // when moving to a new directory/file that is immediately ahead
+     Path resolveAPathFromCurrent(Path newAddition) // when moving to a new directory/file that is immediately ahead
     {
         return fsc.currentPath.resolve(newAddition);
     }
 
-    static Path resolveAPathFromRoot(Path newAdditionFromRoot) // when moving to a new directory/file that specifies a whole path
+     Path resolveAPathFromRoot(Path newAdditionFromRoot) // when moving to a new directory/file that specifies a whole path
     {
         return fsc.programPath.resolve(newAdditionFromRoot);
     }
 
     // CODEX: Normalize exception messages so the error tracker always contains a useful reason, even for exceptions without detail text.
-    static String ioErrorMessage(String operation, IOException error)
+     String ioErrorMessage(String operation, IOException error)
     {
         String reason = error.getMessage();
         if (reason == null || reason.isBlank()) {

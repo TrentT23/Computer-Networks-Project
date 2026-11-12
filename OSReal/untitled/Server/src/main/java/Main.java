@@ -1,19 +1,19 @@
 import Enum.*;
+import Handlers.CommandExecutor;
+import Handlers.FileSystemController;
 import Models.*;
+import SharedModels.CommandResult;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Scanner;
-import java.util.stream.Collectors;
 
 public class Main {
     public static void main(String[] args) throws IOException {
         Scanner scanner = new Scanner(System.in);
-        Path workingDirOfProgram = Path.of("").toAbsolutePath();
 
-        FileSystemController fsc = FileSystemController.fsc;
+        FileSystemController fsc = new FileSystemController();
 
         Boolean isQuit = false;
 
@@ -41,8 +41,10 @@ public class Main {
 
                 CommandResult result = null;
 
+                CommandExecutor executor = new CommandExecutor(fsc);
+
                 if (fullCommandObject != null) {
-                    result = CommandExecutor.ProcessCommand(fullCommandObject);
+                    result = executor.ProcessCommand(fullCommandObject);
                 } else {
                     result = new CommandResult();
                     result.errors.add("Command does not exist.");

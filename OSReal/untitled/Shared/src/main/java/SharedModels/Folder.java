@@ -1,4 +1,4 @@
-package Models;
+package SharedModels;
 
 import java.nio.file.Path;
 
